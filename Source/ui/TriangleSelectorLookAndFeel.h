@@ -12,15 +12,15 @@ public:
     {
         juce::ignoreUnused(sliderPosProportional, rotaryStartAngle, rotaryEndAngle);
         
-        auto bounds = juce::Rectangle<float>(x, y, width, height).reduced(10.0f);
+        auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(10.0f);
         auto centre = bounds.getCentre();
         auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
         
-        const int selectedValue = (int)slider.getValue();
-        
+        const float selectedValue = (float)slider.getValue();
+
         // Calculate rotation angle based on selected value (0, 1, 2)
         // Value 0 = -120 degrees, Value 1 = 0 degrees, Value 2 = 120 degrees
-        float angle = (selectedValue - 1) * (juce::MathConstants<float>::pi * 2.0f / 3.0f);
+        float angle = (selectedValue - 1.0f) * (juce::MathConstants<float>::pi * 2.0f / 3.0f);
         
         juce::Path triangle;
         float triangleSize = radius * 0.8f;
@@ -60,9 +60,9 @@ private:
         const float baseAngle = 5.0f * juce::MathConstants<float>::pi / 6.0f;  // 150° (bottom-left)
         const float angleStep = juce::MathConstants<float>::pi * 2.0f / 3.0f;  // 120°
         
+        float angle = baseAngle;
         for (int i = 0; i < 3; ++i)
         {
-            float angle = baseAngle + (i * angleStep);
             float x = centre.x + std::cos(angle) * symbolRadius;
             float y = centre.y + std::sin(angle) * symbolRadius;
             
@@ -75,6 +75,8 @@ private:
                 drawSawWave(g, x, y, symbolSize);
             else
                 drawTriangleWave(g, x, y, symbolSize);
+
+            angle += angleStep;
         }
     }
     

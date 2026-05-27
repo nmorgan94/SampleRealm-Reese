@@ -50,7 +50,7 @@ public:
                          float sliderPosProportional, float rotaryStartAngle,
                          float rotaryEndAngle, juce::Slider&) override
     {
-        auto bounds = juce::Rectangle<float>(x, y, width, height).reduced(10.0f);
+        auto bounds = juce::Rectangle<int>(x, y, width, height).toFloat().reduced(10.0f);
         auto radius = juce::jmin(bounds.getWidth(), bounds.getHeight()) / 2.0f;
         auto toAngle = rotaryStartAngle + sliderPosProportional * (rotaryEndAngle - rotaryStartAngle);
         auto lineW = juce::jmin(8.0f, radius * 0.5f);

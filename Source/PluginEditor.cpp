@@ -219,14 +219,14 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     titleText.append("REECE", CustomLookAndFeel::orbitronRegular().withPointHeight(28.0f), juce::Colour(CustomLookAndFeel::LIGHT_BLUE));
     titleText.draw(g, headerArea.toFloat());
 
-    auto panelBounds = bounds;
-    
+    auto panelBounds = bounds.toFloat();
+
     // Main panel with depth
-    
+
     // Outer glow
     g.setColour(juce::Colour(0xff00d9ff).withAlpha(0.08f));
-    g.fillRoundedRectangle(panelBounds.toFloat().expanded(2.0f), 14.0f);
-    
+    g.fillRoundedRectangle(panelBounds.expanded(2.0f), 14.0f);
+
     // Panel background with gradient
     juce::ColourGradient panelGradient(juce::Colour(0xff1a1f2e).withAlpha(0.6f),
                                        panelBounds.getX(), panelBounds.getY(),
@@ -234,8 +234,8 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
                                        panelBounds.getX(), panelBounds.getBottom(),
                                        false);
     g.setGradientFill(panelGradient);
-    g.fillRoundedRectangle(panelBounds.toFloat(), 12.0f);
-    
+    g.fillRoundedRectangle(panelBounds, 12.0f);
+
     // Panel border with gradient
     juce::ColourGradient borderGradient(juce::Colour(0xff2a3f5f),
                                         panelBounds.getX(), panelBounds.getY(),
@@ -243,39 +243,34 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
                                         panelBounds.getX(), panelBounds.getBottom(),
                                         false);
     g.setGradientFill(borderGradient);
-    g.drawRoundedRectangle(panelBounds.toFloat(), 12.0f, 2.0f);
+    g.drawRoundedRectangle(panelBounds, 12.0f, 2.0f);
 
     // Inner highlight
     g.setColour(juce::Colour(0xff3a4f6f).withAlpha(0.3f));
-    g.drawRoundedRectangle(panelBounds.toFloat().reduced(2.0f), 10.0f, 1.0f);
+    g.drawRoundedRectangle(panelBounds.reduced(2.0f), 10.0f, 1.0f);
 
     // Section dividers
-    auto dividerArea = panelBounds.reduced(20, 15);
-    const auto rowHeight = dividerArea.getHeight() / 2;
-    
-    for (int i = 1; i < 2; ++i)
-    {
-        auto y = dividerArea.getY() + (i * rowHeight);
-        
-        // Divider glow
-        g.setColour(juce::Colour(0xff00d9ff).withAlpha(0.1f));
-        g.drawLine(dividerArea.getX(), y, dividerArea.getRight(), y, 2.0f);
-        
-        // Divider line
-        g.setColour(juce::Colour(0xff2a3f5f).withAlpha(0.5f));
-        g.drawLine(dividerArea.getX(), y, dividerArea.getRight(), y, 1.0f);
-    }
+    auto dividerArea = panelBounds.reduced(20.0f, 15.0f);
+    auto dividerY = dividerArea.getCentreY();
+
+    // Divider glow
+    g.setColour(juce::Colour(0xff00d9ff).withAlpha(0.1f));
+    g.drawLine(dividerArea.getX(), dividerY, dividerArea.getRight(), dividerY, 2.0f);
+
+    // Divider line
+    g.setColour(juce::Colour(0xff2a3f5f).withAlpha(0.5f));
+    g.drawLine(dividerArea.getX(), dividerY, dividerArea.getRight(), dividerY, 1.0f);
     
     // Vertical divider between LFO DEPTH and ATTACK sliders
-    auto lfoDepthBounds = controls[LFO_DEPTH].slider.getBounds();
-    auto attackBounds = controls[ATTACK].slider.getBounds();
-    auto verticalDividerX = (lfoDepthBounds.getRight() + attackBounds.getX()) / 2;
-    
+    auto lfoDepthBounds = controls[LFO_DEPTH].slider.getBounds().toFloat();
+    auto attackBounds = controls[ATTACK].slider.getBounds().toFloat();
+    auto verticalDividerX = (lfoDepthBounds.getRight() + attackBounds.getX()) / 2.0f;
+
     g.setColour(juce::Colour(0xff00d9ff).withAlpha(0.1f));
-    g.drawLine(verticalDividerX, lfoDepthBounds.getY() + 15, verticalDividerX, lfoDepthBounds.getBottom() - 15, 2.0f);
-    
+    g.drawLine(verticalDividerX, lfoDepthBounds.getY() + 15.0f, verticalDividerX, lfoDepthBounds.getBottom() - 15.0f, 2.0f);
+
     g.setColour(juce::Colour(0xff2a3f5f).withAlpha(0.5f));
-    g.drawLine(verticalDividerX, lfoDepthBounds.getY() + 15, verticalDividerX, lfoDepthBounds.getBottom() - 15, 1.0f);
+    g.drawLine(verticalDividerX, lfoDepthBounds.getY() + 15.0f, verticalDividerX, lfoDepthBounds.getBottom() - 15.0f, 1.0f);
 
     // Corner accents
     auto drawCornerAccent = [&](float x, float y, bool flipX, bool flipY)
@@ -304,7 +299,7 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     // Version text in bottom-right corner
     g.setFont(CustomLookAndFeel::orbitronRegular().withPointHeight(9.0f));
     g.setColour(juce::Colour(0xff00d9ff).withAlpha(0.4f));
-    auto versionArea = juce::Rectangle<int>(panelBounds.getRight() - 60, panelBounds.getBottom() - 23, 50, 12);
+    auto versionArea = juce::Rectangle<int>(bounds.getRight() - 60, bounds.getBottom() - 23, 50, 12);
     g.drawText("v" + juce::String(JucePlugin_VersionString), versionArea, juce::Justification::centredRight);
 }
 
