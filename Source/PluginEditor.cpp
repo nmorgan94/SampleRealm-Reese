@@ -216,7 +216,7 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     juce::AttributedString titleText;
     titleText.setJustification(juce::Justification::centredLeft);
     titleText.append("SampleRealm: ", CustomLookAndFeel::orbitronBold().withPointHeight(28.0f), juce::Colour(CustomLookAndFeel::LIGHT_BLUE));
-    titleText.append("REECE", CustomLookAndFeel::orbitronRegular().withPointHeight(28.0f), juce::Colour(CustomLookAndFeel::LIGHT_BLUE));
+    titleText.append("REESE", CustomLookAndFeel::orbitronRegular().withPointHeight(28.0f), juce::Colour(CustomLookAndFeel::LIGHT_BLUE));
     titleText.draw(g, headerArea.toFloat());
 
     auto panelBounds = bounds.toFloat();
