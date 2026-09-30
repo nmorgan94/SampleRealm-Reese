@@ -24,8 +24,10 @@ namespace Parameters
                                                                         juce::NormalisableRange<float> (0.05f, 20.0f, 0.001f, 0.35f), 0.8f));
         params.push_back (std::make_unique<juce::AudioParameterFloat> (juce::ParameterID { "lfoDepth", versionHint }, "LFO Depth",
                                                                         juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f), 0.25f));
-        params.push_back (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { "lfoSync", versionHint }, "LFO Sync", false));
-        params.push_back (std::make_unique<juce::AudioParameterBool> (juce::ParameterID { "filter24db", versionHint }, "Filter 24dB", false));
+        params.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "lfoSync", versionHint }, "LFO Sync",
+                                                                         juce::StringArray { "Off", "On" }, 0));
+        params.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "filter24db", versionHint }, "Filter 24dB",
+                                                                         juce::StringArray { "Off", "On" }, 0));
         params.push_back (std::make_unique<juce::AudioParameterChoice> (juce::ParameterID { "lfoSyncRate", versionHint }, "LFO Sync Rate",
                                                                          juce::StringArray {
                                                                              "1/16", "1/16T", "1/16D",

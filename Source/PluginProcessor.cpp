@@ -42,8 +42,8 @@ int AudioPluginAudioProcessor::getIntParam (const juce::StringRef& paramID) cons
 
 bool AudioPluginAudioProcessor::getBoolParam (const juce::StringRef& paramID) const
 {
-    if (auto* param = dynamic_cast<juce::AudioParameterBool*>(apvts.getParameter (paramID)))
-        return param->get();
+    if (auto* param = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter (paramID)))
+        return param->getIndex() != 0;
 
     jassertfalse;
     return false;
