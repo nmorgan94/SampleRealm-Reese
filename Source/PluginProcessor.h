@@ -45,6 +45,7 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
     juce::AudioProcessorValueTreeState apvts;
 
     float getFloatParam (const juce::StringRef& paramID) const;

@@ -2,9 +2,9 @@
 
 A synthesiser plugin focused on making Reese-style basses.
 
-It builds as:
+It builds on macOS and Windows as:
 - VST3
-- AU
+- AU (macOS only)
 - Standalone
 ## Sound Design Direction
 
@@ -37,28 +37,43 @@ The UI currently exposes 9 controls:
 - LFO Rate — speed of filter movement (Hz or tempo-synced note divisions)
 - LFO Depth — strength of filter movement
 
+## System Requirements
+
+- **macOS**: 12 or later, Intel or Apple Silicon
+- **Windows**: Windows 10 (version 1607) or later, 64-bit
+
 ## Build Requirements
 
 - CMake 3.25+
-- A C++23-capable compiler
+- A C++23-capable compiler:
+  - **macOS**: Xcode or its Command Line Tools (the `xcode` preset needs the full Xcode app)
+  - **Windows**: Visual Studio 2022 or later with the "Desktop development with C++" workload
 - Git
-- macOS development environment for AU/Standalone/VST3 builds
 
-## Building
+## Commands
 
-### Debug
+Every command is the same on macOS and Windows, except the rows marked **macOS** or **Windows**.
 
-```bash
-cmake --preset debug
-cmake --build --preset debug
-```
+| Task | Command |
+|---|---|
+| Build the plugin (Debug) | `cmake --workflow --preset debug` |
+| Build the plugin (Release) | `cmake --workflow --preset release` |
+| Run the unit tests | `cmake --workflow --preset unit` |
+| Run the unit tests and pluginval | `cmake --workflow --preset test` |
+| Run all tests against a Release build | `cmake --workflow --preset test-release` |
+| Launch the Standalone app (Debug) | `cmake --build --preset run` |
+| Install the plugin for your DAW: **macOS** | Automatic on every build |
+| Install the plugin for your DAW: **Windows** | `cmake --build --preset install-windows`, from an administrator prompt |
+| Open in an IDE for debugging: **macOS** | `cmake --preset xcode`, then open `build-xcode/Reese.xcodeproj` |
+| Open in an IDE for debugging: **Windows** | Open `build-debug\Reese.sln` in Visual Studio after a Debug workflow |
 
-### Release
+`run` and `install-windows` use the Debug build, so run `cmake --workflow --preset debug` once first.
 
-```bash
-cmake --preset release
-cmake --build --preset release
-```
+## Unit Tests
+
+Smoke tests in `Tests/` use [Catch2](https://github.com/catchorg/Catch2) to drive the processor
+directly: parameter ranges and defaults, bus layouts, state save/restore, and finite output across
+block sizes and parameter settings. Run them with the `unit` or `test` workflow.
 
 ## Validating the Plugin
 
@@ -67,7 +82,6 @@ tests it for stability. It is built from source on demand, so there is nothing t
 
 ```bash
 cmake --build --preset debug --target validate   # builds, then validates
-ctest --preset debug                             # validates an existing build
 ```
 
 Logs land in `build-debug/pluginval-logs/`. Strictness defaults to 10; use
@@ -75,30 +89,24 @@ Logs land in `build-debug/pluginval-logs/`. Strictness defaults to 10; use
 pluginval entirely.
 
 The AU test validates the installed component in `~/Library/Audio/Plug-Ins/Components`, since macOS
-resolves Audio Units through its registry rather than by path — so it needs `COPY_PLUGIN_AFTER_BUILD`
+resolves Audio Units through its registry rather than by path — so it needs `PLUGIN_COPY_AFTER_BUILD`
 left on. Steinberg's VST3 conformance validator is off by default, as it pulls ~300MB of SDK for one
 extra test; enable it with `-DPLUGINVAL_VST3_VALIDATOR=ON`.
 
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) builds the Release plugin on macOS and Windows
+and runs the unit tests. Start it by hand from **Actions → CI → Run workflow**, or with
+`gh workflow run ci.yml`; tick **Also run pluginval** (`-f pluginval=true`) to validate too. Each
+run keeps `Reese-macOS.tar.gz` (VST3 and AU) and `Reese-Windows.tar.gz` (VST3) under **Artifacts**
+for 30 days. They are unsigned.
+
 ## Debugging in Xcode
 
-To debug the plugin in Xcode with an executable:
-
-### 1. Generate Xcode Project
-
-```bash
-cmake -B build-xcode -G Xcode
-open build-xcode/Reese.xcodeproj
-```
-
-### 2. Configure Debugging
+Generate the project with `cmake --preset xcode` and open `build-xcode/Reese.xcodeproj`, then:
 
 1. Select your plugin target from the scheme dropdown
 2. Go to **Product → Scheme → Edit Scheme** 
 3. Click **Run** on the left sidebar
 4. Under **Executable**, choose **Other** and navigate to executable.
-
-### 3. Build and Run
-
-1. Press **Cmd+B** to build the plugin
-2. Press **Cmd+R** to run with AudioPluginHost
-4. Load your plugin in AudioPluginHost
+5. Press **Cmd+R** to build and run with the chosen host
