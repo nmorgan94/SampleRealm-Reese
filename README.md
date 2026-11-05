@@ -8,34 +8,32 @@ It builds on macOS and Windows as:
 - Standalone
 ## Sound Design Direction
 
-The synth is designed as a compact Reese bass instrument.
+A compact, monophonic Reese bass instrument. Notes play two octaves below the key.
 
-The current voice architecture is:
-
-- Saw/Triangle/Square oscillator A
-- Saw/Triangle/Square  oscillator B 
-- Detune
-- Sub sine oscillator one octave down
+- Oscillators A and B: square, saw or triangle, detuned against each other, with up to 8 unison voices
+- Sub sine oscillator one octave below oscillator A
+- Drive (tanh saturation)
+- Low-pass filter, 12 or 24 dB, with a sine LFO on its cutoff, free or synced to the host tempo
 - Amp envelope
-- Low-pass filter
-- Tempo-syncable LFO modulation on filter cutoff
-- Drive
-- Output gain
-
-This gives you a dark, moving, detuned bass sound that works as a solid Reese starting point.
+- Mono, last-note priority: a note played while another is held glides to it (Glide) without
+  restarting the envelope, and releasing it returns to the note still held
 
 ## Controls
 
-The UI currently exposes 9 controls:
-
-- Output — final output level in dB
-- Detune — pitch spread between the two saw oscillators
-- Sub — sub oscillator level
-- Cutoff — low-pass filter cutoff frequency
-- Resonance — filter resonance
-- Drive — saturation amount
-- LFO Rate — speed of filter movement (Hz or tempo-synced note divisions)
-- LFO Depth — strength of filter movement
+| Control | What it does |
+|---|---|
+| Osc A, Osc B | Waveform: square, saw or triangle |
+| Sub | Sub oscillator level |
+| Detune | Spread between oscillators A and B and across the unison voices, in cents |
+| Glide | Time to glide between held notes, in seconds |
+| Unison | Voices per oscillator, 1 to 8 |
+| Drive | Saturation amount |
+| Output | Output level, as linear gain from 0 to 1 |
+| Cutoff, with 12dB / 24dB | Low-pass cutoff in Hz, and its slope |
+| Resonance | Filter resonance |
+| LFO Rate, with Sync | LFO speed in Hz, or a note length synced to the host's tempo (174 BPM when it has none) |
+| LFO Depth | How far the LFO moves the cutoff |
+| Attack, Decay, Sustain, Release | The amp envelope |
 
 ## System Requirements
 
@@ -61,6 +59,7 @@ Every command is the same on macOS and Windows, except the rows marked **macOS**
 | Run the unit tests | `cmake --workflow --preset unit` |
 | Run the unit tests and pluginval | `cmake --workflow --preset test` |
 | Run all tests against a Release build | `cmake --workflow --preset test-release` |
+| Build the plugin with the WebView editor (Release) | `cmake --workflow --preset webview` |
 | Launch the Standalone app (Debug) | `cmake --build --preset run` |
 | Install the plugin for your DAW: **macOS** | Automatic on every build |
 | Install the plugin for your DAW: **Windows** | `cmake --build --preset install-windows`, from an administrator prompt |
@@ -71,9 +70,31 @@ Every command is the same on macOS and Windows, except the rows marked **macOS**
 
 ## Unit Tests
 
-Smoke tests in `Tests/` use [Catch2](https://github.com/catchorg/Catch2) to drive the processor
-directly: parameter ranges and defaults, bus layouts, state save/restore, and finite output across
-block sizes and parameter settings. Run them with the `unit` or `test` workflow.
+Tests in `Tests/` use [Catch2](https://github.com/catchorg/Catch2) to drive the processor directly:
+the parameter snapshot hosts and saved sessions rely on, bus layouts, state save/restore, and finite
+output across block sizes and parameter settings. Run them with the `unit` or `test` workflow.
+How notes play is tested on the wasm engine, in `wasm/engine.test.mjs`.
+
+## Web Demo and WebView Editor
+
+The DSP in `Source/dsp/` also builds to WebAssembly for a playable web demo, with a React copy of the
+editor in `webui/`. Needs Emscripten (`brew install emscripten`) and Node 24+.
+
+| Task | Command |
+|---|---|
+| Build and test the demo (engine and UI tests) | `cd wasm && cmake --workflow --preset wasm` |
+| Serve the demo with live reload at http://localhost:8099 | `cd webui && npm run serve` |
+| Typecheck and test the UI on their own | `cd webui && npm run typecheck && npm test` |
+| Build the plugin with the WebView editor | `cmake --workflow --preset webview` |
+
+- The demo builds to `wasm/build-wasm/<company>-<project>-<version>/`, named from `COMPANY_NAME`
+  (one word), `project()` and `VERSION` in `CMakeLists.txt`. Upload that folder; the site embeds its
+  `index.html` in an iframe. [`wasm.yml`](.github/workflows/wasm.yml) builds the same folder on
+  GitHub as an artifact of that name, run by hand.
+- The demo plays from the computer keyboard (A to '), the on-screen keys or a MIDI keyboard,
+  at 174 BPM. Its presets stay in the browser.
+- The `webview` build installs over the native one; run the `release` workflow to switch back.
+- Delete `wasm/patches/juce-wasm.patch` once JUCE fixes its wasm support.
 
 ## Validating the Plugin
 
@@ -99,7 +120,8 @@ extra test; enable it with `-DPLUGINVAL_VST3_VALIDATOR=ON`.
 and runs the unit tests. Start it by hand from **Actions → CI → Run workflow**, or with
 `gh workflow run ci.yml`; tick **Also run pluginval** (`-f pluginval=true`) to validate too. Each
 run keeps `Reese-macOS.tar.gz` (VST3 and AU) and `Reese-Windows.tar.gz` (VST3) under **Artifacts**
-for 30 days. They are unsigned.
+for 30 days. They are unsigned. [`wasm.yml`](.github/workflows/wasm.yml) builds and tests the web
+demo the same way: **Actions → Web demo → Run workflow**, or `gh workflow run wasm.yml`.
 
 ## Debugging in Xcode
 

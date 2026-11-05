@@ -9,7 +9,7 @@ namespace UIConstants
 
 //==============================================================================
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
-    : AudioProcessorEditor (&p), processorRef (p), presetManager(p.apvts), adsrVisualizer(p.apvts)
+    : AudioProcessorEditor (&p), processorRef (p), presetManager(p.getAPVTS()), adsrVisualizer(p.getAPVTS())
 {
     setLookAndFeel(&customLookAndFeel);
 
@@ -33,7 +33,7 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     lfoSyncButton.setButtonText("SYNC");
     lfoSyncButton.onClick = [this]() { updateLFORateControl(); };
     lfoSyncAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processorRef.apvts, "lfoSync", lfoSyncButton);
+        processorRef.getAPVTS(), "lfoSync", lfoSyncButton);
     addAndMakeVisible(lfoSyncButton);
     
     filter24dbButton.setButtonText("12dB");
@@ -42,7 +42,7 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
         filter24dbButton.setButtonText(filter24dbButton.getToggleState() ? "24dB" : "12dB");
     };
     filter24dbAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processorRef.apvts, "filter24db", filter24dbButton);
+        processorRef.getAPVTS(), "filter24db", filter24dbButton);
     addAndMakeVisible(filter24dbButton);
     
     configureSlider (controls[LFO_DEPTH], "lfoDepth", "LFO DEPTH");
@@ -78,9 +78,11 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     
     updatePresetComboBox();
     
-    startTimerHz (1000 / TIMER_INTERVAL_MS);
+    // Drop anything played while no meter was showing
+    processorRef.getOutputMeter().reset();
+    startTimerHz (meterHz);
 
-    setSize (625, 300);
+    setSize (width, height);
 }
 
 AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
@@ -95,12 +97,13 @@ AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 
 void AudioPluginAudioProcessorEditor::timerCallback()
 {
+    const auto newPeak = processorRef.getOutputMeter().readAndReset (0);
+
     // Update peak level with decay
-    const float newPeak = processorRef.getPeakLevel();
     const float decayRate = 0.95f;
     currentPeakLevel = juce::jmax (newPeak, currentPeakLevel * decayRate);
     
-    if (processorRef.isClipping())
+    if (newPeak >= 1.0f)
     {
         clipIndicatorActive = true;
         clipIndicatorTimer = CLIP_HOLD_TIME_MS;
@@ -197,7 +200,7 @@ void AudioPluginAudioProcessorEditor::configureSlider (SliderWithAttachment& sli
     sliderControl.label.attachToComponent (&sliderControl.slider, false);
     addAndMakeVisible (sliderControl.label);
 
-    sliderControl.attachment = std::make_unique<SliderAttachment> (processorRef.apvts, paramID, sliderControl.slider);
+    sliderControl.attachment = std::make_unique<SliderAttachment> (processorRef.getAPVTS(), paramID, sliderControl.slider);
 }
 
 //==============================================================================

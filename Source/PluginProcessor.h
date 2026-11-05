@@ -1,9 +1,9 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include <juce_dsp/juce_dsp.h>
 #include "Parameters.h"
-#include "synth/ReeseVoice.h"
+#include "dsp/PeakMeter.h"
+#include "dsp/ReeseSynth.h"
 
 //==============================================================================
 class AudioPluginAudioProcessor final : public juce::AudioProcessor
@@ -46,29 +46,17 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
+    PeakMeter& getOutputMeter()                    { return outputMeter; }
+
+    // 0 until the first block
+    double getCurrentBPM() const { return currentBPM.load(); }
+
+private:
     juce::AudioProcessorValueTreeState apvts;
 
-    float getFloatParam (const juce::StringRef& paramID) const;
-    int getIntParam (const juce::StringRef& paramID) const;
-    bool getBoolParam (const juce::StringRef& paramID) const;
-    int getChoiceParam (const juce::StringRef& paramID) const;
-    
-    // Peak level tracking
-    float getPeakLevel() const { return peakLevel.load(); }
-    bool isClipping() const { return isCurrentlyClipping.load(); }
-    
-    // Transport info
-    double getCurrentBPM() const { return currentBPM.load(); }
-private:
-
-    juce::Synthesiser synth;
-    int numNotesHeld { 0 };
-    
-    // Peak level tracking
-    std::atomic<float> peakLevel { 0.0f };
-    std::atomic<bool> isCurrentlyClipping { false };
-    
-    // Transport info tracking
+    ReeseSynth synth;
+    // Every channel carries the same mono signal
+    PeakMeter outputMeter { 1 };
     std::atomic<double> currentBPM { 0.0 };
 
     //==============================================================================

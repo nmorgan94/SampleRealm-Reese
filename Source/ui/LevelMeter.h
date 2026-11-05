@@ -4,10 +4,10 @@
 #include "CustomLookAndFeel.h"
 
 //==============================================================================
-class PeakMeter final : public juce::Component
+class LevelMeter final : public juce::Component
 {
 public:
-    PeakMeter() = default;
+    LevelMeter() = default;
     
     void paint (juce::Graphics& g) override
     {
@@ -85,5 +85,5 @@ private:
     float peakLevel { 0.0f };
     bool isClipping { false };
     
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PeakMeter)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (LevelMeter)
 };

@@ -43,11 +43,9 @@ public:
         
         // Write to file
         auto presetFile = presetDirectory.getChildFile(presetName + ".json");
-        juce::FileOutputStream stream(presetFile);
         
-        if (stream.openedOk())
+        if (presetFile.replaceWithText(juce::JSON::toString(presetData, true)))
         {
-            stream.writeText(juce::JSON::toString(presetData, true), false, false, nullptr);
             loadPresetList(); // Refresh list
             return true;
         }

@@ -3,7 +3,7 @@
 #include "PluginProcessor.h"
 #include "ui/CustomLookAndFeel.h"
 #include "ui/TriangleSelectorLookAndFeel.h"
-#include "ui/PeakMeter.h"
+#include "ui/LevelMeter.h"
 #include "ui/ADSRVisualizer.h"
 #include "ui/TransportDisplay.h"
 #include "PresetManager.h"
@@ -13,6 +13,10 @@ class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
                                                private juce::Timer
 {
 public:
+    static constexpr int width = 625;
+    static constexpr int height = 300;
+    static constexpr int meterHz = 33;
+
     explicit AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor&);
     ~AudioPluginAudioProcessorEditor() override;
 
@@ -69,7 +73,7 @@ private:
     juce::ComboBox presetComboBox;
     juce::TextButton savePresetButton;
     juce::TextButton deletePresetButton;
-    PeakMeter peakMeter;
+    LevelMeter peakMeter;
     ADSRVisualizer adsrVisualizer;
     TransportDisplay transportDisplay;
     
@@ -88,7 +92,7 @@ private:
     bool clipIndicatorActive { false };
     int clipIndicatorTimer { 0 };
     static constexpr int CLIP_HOLD_TIME_MS = 500;
-    static constexpr int TIMER_INTERVAL_MS = 30;
+    static constexpr int TIMER_INTERVAL_MS = 1000 / meterHz;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
 };
