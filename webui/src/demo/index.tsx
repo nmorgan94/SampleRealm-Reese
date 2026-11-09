@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Keyboard } from './Keyboard.tsx';
 import { qwertySemitone } from './qwerty.ts';
 import { EDITOR_HEIGHT, EDITOR_WIDTH } from '../layout.ts';
 import { ReeseEditor } from '../ReeseEditor.tsx';
+import { factoryPresets } from './factoryPresets.ts';
 import { loadEngine, workletBackend, type WorkletBackend } from './workletBackend.ts';
-import { TextButton } from '../controls.tsx';
 import './styles.css';
 
 const ENGINE_URL = 'engine.wasm';
@@ -16,6 +16,26 @@ const LOW_NOTE = 48;
 const NUM_KEYS = 25;
 
 const SIZE_MESSAGE = 'samplerealm-demo-size';
+
+// Blocked storage throws on access
+function browserStorage() {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+// LookAndFeel_V4's TextButton with CustomLookAndFeel's colours
+function DemoButton({ className = '', ...props }: ComponentProps<'button'>) {
+  return (
+    <button
+      type="button"
+      className={`cursor-pointer rounded-md border border-panel-border bg-panel font-sans text-accent hover:brightness-125 ${className}`}
+      {...props}
+    />
+  );
+}
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
@@ -83,7 +103,7 @@ function Demo() {
 
   useEffect(() => {
     loadEngine(ENGINE_URL)
-      .then(({ wasm, info }) => setEngine({ backend: workletBackend(info), wasm }))
+      .then(({ wasm, info }) => setEngine({ backend: workletBackend(info, factoryPresets, browserStorage()), wasm }))
       .catch((error) => {
         console.error('Demo engine failed to load:', error);
         setStatus('failed');
@@ -226,9 +246,9 @@ function Demo() {
       <Keyboard lowNote={LOW_NOTE} numKeys={NUM_KEYS} active={active} onNoteOn={noteOn} onNoteOff={noteOff} />
 
       {status === 'on' && !midi && 'requestMIDIAccess' in navigator && (
-        <TextButton className="mt-2.5 h-7 px-2 text-xs" onClick={connectMidi}>
+        <DemoButton className="mt-2.5 h-7 px-2 text-xs" onClick={connectMidi}>
           Use a MIDI keyboard
-        </TextButton>
+        </DemoButton>
       )}
     </div>
   );

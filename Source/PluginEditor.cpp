@@ -1,18 +1,12 @@
 #include "PluginEditor.h"
 
-namespace UIConstants
-{
-    constexpr int COMBO_BOX_WIDTH = 160;
-    constexpr int BUTTON_SIZE = 24;
-    constexpr int SPACING = 4;
-}
-
 //==============================================================================
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
-    : AudioProcessorEditor (&p), processorRef (p), presetManager(p.getAPVTS()), adsrVisualizer(p.getAPVTS())
+    : AudioProcessorEditor (&p), processorRef (p), adsrVisualizer(p.getAPVTS())
 {
     setLookAndFeel(&customLookAndFeel);
 
+    addAndMakeVisible(header);
     addAndMakeVisible(adsrVisualizer);
 
     configureSlider (controls[OSC_A_WAVE], "oscAWave", "OSC A");
@@ -53,34 +47,13 @@ AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAud
     configureSlider (controls[SUSTAIN], "sustain", "SUSTAIN");
     configureSlider (controls[RELEASE], "release", "RELEASE");
 
-    presetComboBox.setTextWhenNothingSelected("Select Preset");
-    presetComboBox.onChange = [this]()
-    {
-        auto selectedId = presetComboBox.getSelectedId();
-        if (selectedId > 0)
-        {
-            auto presetName = presetComboBox.getItemText(selectedId - 1);
-            presetManager.loadPreset(presetName);
-        }
-    };
-    addAndMakeVisible(presetComboBox);
-    
-    savePresetButton.setButtonText("+");
-    savePresetButton.onClick = [this]() { savePresetClicked(); };
-    addAndMakeVisible(savePresetButton);
-
-    deletePresetButton.setButtonText("-");
-    deletePresetButton.onClick = [this]() { deletePresetClicked(); };
-    addAndMakeVisible(deletePresetButton);
-    
-    addAndMakeVisible(peakMeter);
     addAndMakeVisible(transportDisplay);
-    
-    updatePresetComboBox();
-    
-    // Drop anything played while no meter was showing
-    processorRef.getOutputMeter().reset();
-    startTimerHz (meterHz);
+
+    prompt.setFont (CustomLookAndFeel::orbitronRegular().withHeight (14.0f));
+    addChildComponent (prompt);
+    addChildComponent (manual);
+
+    startTimerHz (transportHz);
 
     setSize (width, height);
 }
@@ -97,27 +70,6 @@ AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 
 void AudioPluginAudioProcessorEditor::timerCallback()
 {
-    const auto newPeak = processorRef.getOutputMeter().readAndReset (0);
-
-    // Update peak level with decay
-    const float decayRate = 0.95f;
-    currentPeakLevel = juce::jmax (newPeak, currentPeakLevel * decayRate);
-    
-    if (newPeak >= 1.0f)
-    {
-        clipIndicatorActive = true;
-        clipIndicatorTimer = CLIP_HOLD_TIME_MS;
-    }
-    else if (clipIndicatorTimer > 0)
-    {
-        clipIndicatorTimer -= TIMER_INTERVAL_MS;
-        if (clipIndicatorTimer <= 0)
-            clipIndicatorActive = false;
-    }
-    
-    peakMeter.setPeakLevel(currentPeakLevel);
-    peakMeter.setClipping(clipIndicatorActive);
-    
     transportDisplay.setBPM(processorRef.getCurrentBPM());
 }
 
@@ -196,7 +148,7 @@ void AudioPluginAudioProcessorEditor::configureSlider (SliderWithAttachment& sli
 
     sliderControl.label.setText (labelText, juce::dontSendNotification);
     sliderControl.label.setJustificationType (juce::Justification::centred);
-    sliderControl.label.setFont(CustomLookAndFeel::orbitronBold().withHeight(12.0f));
+    sliderControl.label.setFont(juce::FontOptions(14.0f, juce::Font::bold));
     sliderControl.label.attachToComponent (&sliderControl.slider, false);
     addAndMakeVisible (sliderControl.label);
 
@@ -213,14 +165,7 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll();
 
     auto bounds = getLocalBounds().reduced (3);
-    auto headerArea = bounds.removeFromTop(40);
-    
-    // Main title
-    juce::AttributedString titleText;
-    titleText.setJustification(juce::Justification::centredLeft);
-    titleText.append("SampleRealm: ", CustomLookAndFeel::orbitronBold().withPointHeight(28.0f), juce::Colour(CustomLookAndFeel::LIGHT_BLUE));
-    titleText.append("REESE", CustomLookAndFeel::orbitronRegular().withPointHeight(28.0f), juce::Colour(CustomLookAndFeel::LIGHT_BLUE));
-    titleText.draw(g, headerArea.toFloat());
+    bounds.removeFromTop (headerLayout.height);
 
     auto panelBounds = bounds.toFloat();
 
@@ -309,26 +254,7 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 void AudioPluginAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced (3);
-    auto headerArea = bounds.removeFromTop(40);
-    
-    // Header layout: Title area | Preset controls | Peak meter
-    const int presetWidth = UIConstants::BUTTON_SIZE + UIConstants::SPACING +
-                           UIConstants::COMBO_BOX_WIDTH + UIConstants::SPACING +
-                           UIConstants::BUTTON_SIZE;
-    const int meterWidth = 60;
-    
-    auto meterArea = headerArea.removeFromRight(meterWidth).reduced(5, 10);
-    peakMeter.setBounds(meterArea);
-    
-    auto presetControlsBounds = headerArea.removeFromRight(presetWidth).withSizeKeepingCentre(presetWidth, UIConstants::BUTTON_SIZE);
-    
-    savePresetButton.setBounds(presetControlsBounds.removeFromLeft(UIConstants::BUTTON_SIZE));
-    presetControlsBounds.removeFromLeft(UIConstants::SPACING);
-    presetComboBox.setBounds(presetControlsBounds.removeFromLeft(UIConstants::COMBO_BOX_WIDTH));
-    presetControlsBounds.removeFromLeft(UIConstants::SPACING);
-    deletePresetButton.setBounds(presetControlsBounds.removeFromLeft(UIConstants::BUTTON_SIZE));
-    
-    // Title area is the remaining headerArea (drawn in paint())
+    header.setBounds (bounds.removeFromTop (headerLayout.height));
 
     auto panelArea = bounds;
     auto transportArea = juce::Rectangle<int>(panelArea.getX() + 15, panelArea.getBottom() - 23, 140, 12);
@@ -377,68 +303,4 @@ void AudioPluginAudioProcessorEditor::resized()
         10
     );
     filter24dbButton.setBounds(filter24dbButtonBounds);
-}
-
-
-void AudioPluginAudioProcessorEditor::updatePresetComboBox()
-{
-    presetComboBox.clear();
-    
-    auto presetList = presetManager.getPresetList();
-    
-    for (int i = 0; i < presetList.size(); ++i)
-    {
-        presetComboBox.addItem(presetList[i], i + 1);
-    }
-}
-
-void AudioPluginAudioProcessorEditor::savePresetClicked()
-{
-    presetManager.showSaveDialog(this, [this](bool success, juce::String presetName)
-    {
-        if (success)
-        {
-            updatePresetComboBox();
-            
-            // Select the newly saved preset
-            for (int i = 0; i < presetComboBox.getNumItems(); ++i)
-            {
-                if (presetComboBox.getItemText(i) == presetName)
-                {
-                    presetComboBox.setSelectedId(i + 1, juce::dontSendNotification);
-                    break;
-                }
-            }
-        }
-    });
-}
-
-void AudioPluginAudioProcessorEditor::deletePresetClicked()
-{
-    auto selectedId = presetComboBox.getSelectedId();
-    
-    if (selectedId > 0)
-    {
-        auto presetName = presetComboBox.getItemText(selectedId - 1);
-        
-        presetManager.showDeleteDialog(presetName, this, [this](bool success)
-        {
-            if (success)
-            {
-                updatePresetComboBox();
-                presetComboBox.setSelectedId(0, juce::dontSendNotification);
-            }
-        });
-    }
-    else
-    {
-        auto* window = new juce::AlertWindow("No Preset Selected",
-                                             "Please select a preset to delete.",
-                                             juce::AlertWindow::NoIcon);
-        window->addButton("OK", 1, juce::KeyPress(juce::KeyPress::returnKey));
-        window->enterModalState(true, juce::ModalCallbackFunction::create([window](int)
-        {
-            delete window;
-        }), true);
-    }
 }

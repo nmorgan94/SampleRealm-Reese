@@ -4,6 +4,7 @@
 #include "Parameters.h"
 #include "dsp/PeakMeter.h"
 #include "dsp/ReeseSynth.h"
+#include "presets/PresetManager.h"
 
 //==============================================================================
 class AudioPluginAudioProcessor final : public juce::AudioProcessor
@@ -47,12 +48,16 @@ public:
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
     PeakMeter& getOutputMeter()                    { return outputMeter; }
+    PresetManager& getPresetManager()              { return presetManager; }
+
+    static PresetManager::Config createPresetConfig();
 
     // 0 until the first block
     double getCurrentBPM() const { return currentBPM.load(); }
 
 private:
     juce::AudioProcessorValueTreeState apvts;
+    PresetManager presetManager { apvts, createPresetConfig() };
 
     ReeseSynth synth;
     // Every channel carries the same mono signal

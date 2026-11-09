@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "shared/SynthSettings.h"
+#include <BinaryData.h>
 
 #if PLUGIN_WEBVIEW_EDITOR
  #include "webview/WebViewEditor.h"
@@ -20,6 +21,31 @@ AudioPluginAudioProcessor::AudioPluginAudioProcessor()
 }
 
 AudioPluginAudioProcessor::~AudioPluginAudioProcessor() = default;
+
+PresetManager::Config AudioPluginAudioProcessor::createPresetConfig()
+{
+    PresetManager::Config config;
+    config.fileExtension = ".srreese";
+    config.userDirectory = PresetManager::getDefaultUserDirectory (JucePlugin_Manufacturer, JucePlugin_Name);
+    config.author        = JucePlugin_Manufacturer;
+    config.formatVersion = Parameters::versionHint;
+
+    // Factory presets are embedded from Assets/Presets alongside the font
+    for (int i = 0; i < BinaryData::namedResourceListSize; ++i)
+    {
+        const auto* resource = BinaryData::namedResourceList[i];
+
+        if (! juce::String (BinaryData::getNamedResourceOriginalFilename (resource)).endsWithIgnoreCase (config.fileExtension))
+            continue;
+
+        int size = 0;
+
+        if (const auto* data = BinaryData::getNamedResource (resource, size))
+            config.factoryPresets.emplace_back (data, (size_t) size);
+    }
+
+    return config;
+}
 
 //==============================================================================
 const juce::String AudioPluginAudioProcessor::getName() const
@@ -150,15 +176,19 @@ juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
 //==============================================================================
 void AudioPluginAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (auto xml = apvts.copyState().createXml())
+    auto state = apvts.copyState();
+    presetManager.addPresetInfoTo (state);
+
+    if (const auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
 void AudioPluginAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    if (auto xml = getXmlFromBinary (data, sizeInBytes))
-        if (xml->hasTagName (apvts.state.getType()))
-            apvts.replaceState (juce::ValueTree::fromXml (*xml));
+    const auto xml = getXmlFromBinary (data, sizeInBytes);
+
+    if (xml != nullptr && xml->hasTagName (apvts.state.getType()))
+        presetManager.restoreState (juce::ValueTree::fromXml (*xml));
 }
 
 //==============================================================================

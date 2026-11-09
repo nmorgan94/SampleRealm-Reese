@@ -1,9 +1,19 @@
 // AudioPluginAudioProcessorEditor::resized(), worked through
+export interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+// juce::Rectangle::withSizeKeepingCentre
+export const centred = (outer: number, inner: number) => Math.trunc((outer - inner) / 2);
+
 export const EDITOR_WIDTH = 625;
 export const EDITOR_HEIGHT = 300;
 
 const MARGIN = 3;
-const HEADER_HEIGHT = 40;
+export const HEADER_HEIGHT = 40;
 
 export const header = { x: MARGIN, y: MARGIN, width: EDITOR_WIDTH - 2 * MARGIN, height: HEADER_HEIGHT };
 export const panel = { x: MARGIN, y: MARGIN + HEADER_HEIGHT, width: header.width, height: EDITOR_HEIGHT - 2 * MARGIN - HEADER_HEIGHT };
@@ -28,20 +38,6 @@ export const cell = (index: number) => {
 export const toggleOn = (index: number) => ({ x: cell(index).slider.x + 40, y: cell(index).slider.y + 5, width: 30, height: 10 });
 
 export const adsr = { x: area.x + 4 * columnWidth, y: area.y + rowHeight + 10, width: 4 * columnWidth, height: rowHeight - 15 };
-
-const METER_WIDTH = 60;
-export const meter = { x: header.x + header.width - METER_WIDTH + 5, y: header.y + 10, width: 50, height: 20 };
-
-// Save, combo and delete, right of the title and centred in the header
-export const PRESET_BUTTON = 24;
-export const PRESET_COMBO = 160;
-export const PRESET_GAP = 4;
-const presetWidth = PRESET_BUTTON + PRESET_GAP + PRESET_COMBO + PRESET_GAP + PRESET_BUTTON;
-export const presetBar = {
-  x: header.x + header.width - METER_WIDTH - presetWidth,
-  y: header.y + (HEADER_HEIGHT - PRESET_BUTTON) / 2,
-  height: PRESET_BUTTON,
-};
 
 const panelBottom = panel.y + panel.height;
 export const transport = { x: panel.x + 15, y: panelBottom - 23, width: 140, height: 12 };

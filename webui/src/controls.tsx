@@ -1,6 +1,13 @@
 // Mirrors Source/ui/CustomLookAndFeel.h, TriangleSelectorLookAndFeel.h and juce::Slider's rotary drag
-import { useId, useRef, type ComponentProps, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useId,
+  useRef,
+  type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import type { PluginBackend } from './backend.ts';
+import type { Rect } from './layout.ts';
 import { juceHeight } from './fonts.ts';
 import { useParam, type ParamState } from './hooks.ts';
 import { fromProportion, toProportion } from './params.ts';
@@ -8,6 +15,8 @@ import { fromProportion, toProportion } from './params.ts';
 // JUCE's default rotary angles, clockwise from 12 o'clock
 const ROTARY_START = 1.2 * Math.PI;
 const ROTARY_SWEEP = 1.6 * Math.PI;
+
+export type { Rect };
 
 const CYAN = 'var(--color-accent)';
 const MAGENTA = 'var(--color-magenta)';
@@ -189,13 +198,22 @@ export function SmallToggle({ backend, id, text }: { backend: PluginBackend; id:
   );
 }
 
-// LookAndFeel_V4's TextButton with CustomLookAndFeel's colours
-export function TextButton({ className = '', ...props }: ComponentProps<'button'>) {
+interface TextButtonProps {
+  text: string;
+  style: CSSProperties;
+  onClick(e: ReactMouseEvent<HTMLButtonElement>): void;
+}
+
+// LookAndFeel_V4::drawButtonBackground lightens by 5% on hover and 20% while down
+export function TextButton({ text, style, onClick }: TextButtonProps) {
   return (
     <button
       type="button"
-      className={`cursor-pointer rounded-md border border-panel-border bg-panel font-sans text-accent hover:brightness-125 ${className}`}
-      {...props}
-    />
+      className="absolute cursor-pointer overflow-hidden rounded-md border border-line bg-widget px-1 text-ellipsis whitespace-nowrap text-accent hover:bg-[color-mix(in_srgb,var(--color-widget),white_5%)] active:bg-[color-mix(in_srgb,var(--color-widget),white_20%)]"
+      style={{ fontSize: juceHeight(12), ...style }}
+      onClick={onClick}
+    >
+      {text}
+    </button>
   );
 }

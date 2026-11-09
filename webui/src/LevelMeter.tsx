@@ -1,54 +1,83 @@
 // Mirrors Source/ui/LevelMeter.h
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PluginBackend } from './backend.ts';
-import { meterBallistics, TICK_MS, type MeterState } from './meter.ts';
+import { centred } from './layout.ts';
+import { barChanged, emptyBar, FLOOR_DB, isClipping, updateBar, UPDATE_HZ, type Bar } from './meter.ts';
 
-export function LevelMeter({ backend, width, height }: { backend: PluginBackend; width: number; height: number }) {
-  const id = useId();
-  const [{ level, clipping }, setState] = useState<MeterState>({ level: 0, clipping: false });
+export const BAR_WIDTH = 12;
+const GAP = 3;
+const MAX_CHANNELS = 2;
+
+const widthFor = (numChannels: number) => BAR_WIDTH * numChannels + GAP * (numChannels - 1);
+export const PREFERRED_WIDTH = widthFor(MAX_CHANNELS);
+
+function useBars(backend: PluginBackend, channels: number) {
+  const [bars, setBars] = useState<Bar[]>(() => Array.from({ length: channels }, emptyBar));
+  // The loudest peak per channel since the last tick
+  const pending = useRef<number[]>(new Array(channels).fill(0));
+
+  useEffect(
+    () =>
+      backend.onLevel(({ peaks }) => {
+        const next = peaks.slice(0, MAX_CHANNELS).map((peak, channel) => Math.max(peak, pending.current[channel] ?? 0));
+        pending.current = next;
+      }),
+    [backend]
+  );
 
   useEffect(() => {
-    const tick = meterBallistics();
-    let loudest = 0;
-    const unsubscribe = backend.onPeak((peak) => (loudest = Math.max(loudest, peak)));
-    const timer = setInterval(() => {
-      const next = tick(loudest);
-      setState((last) => (last.level === next.level && last.clipping === next.clipping ? last : next));
-      loudest = 0;
-    }, TICK_MS);
-    return () => {
-      unsubscribe();
-      clearInterval(timer);
-    };
-  }, [backend]);
+    const timer = window.setInterval(() => {
+      const peaks = pending.current;
+      pending.current = new Array(peaks.length).fill(0);
+      setBars((current) => {
+        const next = peaks.map((peak, channel) => updateBar(current[channel] ?? emptyBar(), peak));
+        const changed = next.length !== current.length || next.some((bar, channel) => barChanged(current[channel], bar));
+        return changed ? next : current;
+      });
+    }, 1000 / UPDATE_HZ);
+    return () => window.clearInterval(timer);
+  }, []);
 
-  const inner = { x: 3, y: 3, width: width - 6, height: height - 6 };
-  const fill = Math.min(1, level) * inner.height;
+  return bars;
+}
+
+function BarView({ x, height, bar }: { x: number; height: number; bar: Bar }) {
+  const left = x + 0.5;
+  const width = BAR_WIDTH - 1;
+  const top = 0.5 + 6 + 3;
+  const bodyHeight = height - 1 - 6 - 3;
+  const fraction = (bar.levelDb - FLOOR_DB) / -FLOOR_DB;
+  const fillHeight = (bodyHeight - 2) * fraction;
 
   return (
-    <svg width={width} height={height} aria-hidden>
-      <defs>
-        <linearGradient id={`${id}fill`} x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stopColor="var(--color-magenta)" />
-          {level > 0.85 && <stop offset="0.15" stopColor="#ff0000" />}
-          <stop offset="1" stopColor="var(--color-accent)" />
-        </linearGradient>
-      </defs>
-      <rect x={0.5} y={0.5} width={width - 1} height={height - 1} rx={4} fill="var(--color-panel)" fillOpacity={0.8} stroke="var(--color-panel-border)" />
-      {fill > 0 && (
-        <>
-          <rect x={inner.x} y={inner.y + inner.height - fill} width={inner.width} height={fill} rx={2} fill={`url(#${id}fill)`} />
-          <rect x={inner.x - 1} y={inner.y + inner.height - fill - 1} width={inner.width + 2} height={fill + 2} rx={2} fill="var(--color-accent)" fillOpacity={0.3} />
-        </>
-      )}
-      {clipping ? (
-        <>
-          <rect x={0} y={-1} width={width} height={5} rx={1} fill="#ff0000" fillOpacity={0.4} />
-          <rect x={0} y={0} width={width} height={3} rx={1} fill="#ff0000" />
-        </>
-      ) : (
-        <rect x={0} y={0} width={width} height={3} rx={1} fill="#3a0000" fillOpacity={0.5} />
-      )}
+    <g>
+      <rect x={left} y={0.5} width={width} height={6} rx={2} fill={isClipping(bar) ? 'var(--color-meter-clip)' : 'var(--color-meter-outline)'} />
+      <rect x={left} y={top} width={width} height={bodyHeight} rx={2} fill="var(--color-meter-background)" />
+      {fillHeight > 0 && <rect x={left + 1} y={top + 1 + bodyHeight - 2 - fillHeight} width={width - 2} height={fillHeight} rx={1.5} fill="var(--color-meter-bar)" />}
+      <rect x={left} y={top} width={width} height={bodyHeight} rx={2} fill="none" stroke="var(--color-meter-outline)" strokeWidth={1} />
+    </g>
+  );
+}
+
+interface LevelMeterProps {
+  backend: PluginBackend;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  // Bars shown until the first level arrives
+  channels?: number;
+}
+
+export function LevelMeter({ backend, x, y, width, height, channels = MAX_CHANNELS }: LevelMeterProps) {
+  const bars = useBars(backend, channels);
+  const start = centred(width, widthFor(bars.length));
+
+  return (
+    <svg className="absolute" style={{ left: x, top: y }} width={width} height={height} aria-hidden>
+      {bars.map((bar, channel) => (
+        <BarView key={channel} x={start + channel * (BAR_WIDTH + GAP)} height={height} bar={bar} />
+      ))}
     </svg>
   );
 }

@@ -1,19 +1,51 @@
+// The same cases as the Ballistics tests in Tests/MeterTests.cpp
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { meterBallistics, TICK_MS } from '../src/meter.ts';
+import { barChanged, CLIP_HOLD_TICKS, emptyBar, FLOOR_DB, isClipping, updateBar, UPDATE_HZ, type Bar } from '../src/meter.ts';
 
-test('the level jumps up and falls by 5% a tick', () => {
-  const tick = meterBallistics();
+const near = (actual: number, expected: number, tolerance: number) =>
+  assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} is not within ${tolerance} of ${expected}`);
 
-  assert.equal(tick(0.5).level, 0.5);
-  assert.equal(tick(0).level, 0.475);
-  assert.equal(tick(0.9).level, 0.9);
+const tick = (bar: Bar, peak: number, times = 1) => {
+  for (let i = 0; i < times; i++) bar = updateBar(bar, peak);
+  return bar;
+};
+
+test('bars rise at once and fall smoothly', () => {
+  let bar = emptyBar();
+  assert.equal(bar.levelDb, FLOOR_DB);
+
+  bar = tick(bar, 0.5);
+  near(bar.levelDb, -6.02, 0.01);
+
+  bar = tick(bar, 1);
+  near(bar.levelDb, 0, 1e-6);
+
+  // One second of silence falls 20 dB
+  bar = tick(bar, 0, UPDATE_HZ);
+  near(bar.levelDb, -20, 0.01);
+
+  // Then it settles on the floor and stops asking for repaints
+  bar = tick(bar, 0, 10 * UPDATE_HZ);
+  assert.equal(bar.levelDb, FLOOR_DB);
+  assert.equal(barChanged(bar, updateBar(bar, 0)), false);
 });
 
-test('a clip holds for 500 ms after the last loud tick', () => {
-  const tick = meterBallistics();
+test('the clip light holds after going over 0 dB', () => {
+  for (const peak of [1.5, Infinity]) {
+    let bar = emptyBar();
+    assert.equal(isClipping(bar), false);
 
-  assert.equal(tick(1).clipping, true);
-  const ticksHeld = Array.from({ length: 20 }, () => tick(0).clipping).filter(Boolean).length;
-  assert.equal(ticksHeld, Math.ceil(500 / TICK_MS) - 1);
+    bar = tick(bar, peak);
+    assert.equal(isClipping(bar), true, `${peak}`);
+    assert.equal(bar.levelDb, 0, 'capped at the top of the scale');
+
+    bar = tick(bar, 0, CLIP_HOLD_TICKS - 1);
+    assert.equal(isClipping(bar), true);
+    assert.ok(bar.levelDb < 0, 'even an infinite peak falls away');
+
+    const next = updateBar(bar, 0);
+    assert.equal(barChanged(bar, next), true, 'the light going out needs a repaint');
+    assert.equal(isClipping(next), false);
+  }
 });

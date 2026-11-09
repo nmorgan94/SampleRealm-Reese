@@ -2,6 +2,9 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "BinaryData.h"
+#include "HeaderBar.h"
+#include "LevelMeter.h"
+#include "ModalOverlay.h"
 
 class CustomLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -17,17 +20,43 @@ public:
     static constexpr juce::uint32 KNOB_DARK = 0xff4f2a1a;
     static constexpr juce::uint32 KNOB_HIGHLIGHT = 0xff9f7a5a;
 
+    static constexpr float regularWeight = 400.0f;
+    static constexpr float boldWeight = 700.0f;
+
     CustomLookAndFeel()
     {
         setColour(juce::Label::textColourId, juce::Colour(LIGHT_BLUE));
         
-        setColour(juce::ComboBox::textColourId, juce::Colour(LIGHT_BLUE));
-        setColour(juce::ComboBox::arrowColourId, juce::Colour(CYAN));
-        setColour(juce::ComboBox::backgroundColourId, juce::Colour(DARK_BLUE_1));
         setColour(juce::ComboBox::outlineColourId, juce::Colour(BORDER_BLUE));
         
         setColour(juce::TextButton::buttonColourId, juce::Colour(DARK_BLUE_1));
         setColour(juce::TextButton::textColourOffId, juce::Colour(CYAN));
+        setColour(juce::TextButton::textColourOnId, juce::Colour(CYAN));
+
+        setColour(juce::TextEditor::backgroundColourId, juce::Colour(DARK_BLUE_2));
+        setColour(juce::TextEditor::textColourId, juce::Colour(LIGHT_BLUE));
+        setColour(juce::TextEditor::outlineColourId, juce::Colour(BORDER_BLUE));
+        setColour(juce::TextEditor::focusedOutlineColourId, juce::Colour(CYAN));
+        setColour(juce::TextEditor::highlightColourId, juce::Colour(CYAN).withAlpha(0.4f));
+        setColour(juce::CaretComponent::caretColourId, juce::Colour(CYAN));
+
+        setColour(juce::PopupMenu::headerTextColourId, juce::Colour(CYAN));
+        setColour(juce::ScrollBar::thumbColourId, juce::Colour(CYAN));
+
+        setColour(ModalOverlay::dimColourId, juce::Colour(DARK_BLUE_2).withAlpha(0.75f));
+        setColour(ModalOverlay::panelColourId, juce::Colour(DARK_BLUE_1));
+        setColour(ModalOverlay::outlineColourId, juce::Colour(BORDER_BLUE));
+        setColour(LevelMeter::backgroundColourId, juce::Colour(DARK_BLUE_2));
+        setColour(LevelMeter::outlineColourId, juce::Colour(BORDER_BLUE));
+        setColour(LevelMeter::barColourId, juce::Colour(CYAN));
+        setColour(LevelMeter::clipColourId, juce::Colour(MAGENTA));
+        setColour(HeaderBar::backgroundColourId, juce::Colours::transparentBlack);
+        setColour(HeaderBar::titleColourId, juce::Colour(LIGHT_BLUE));
+    }
+
+    [[nodiscard]] static juce::FontOptions orbitron(float weight)
+    {
+        return weight >= boldWeight ? orbitronBold() : orbitronRegular();
     }
 
     [[nodiscard]] static juce::FontOptions orbitronRegular()
@@ -120,65 +149,15 @@ public:
         g.fillEllipse(centre.x - 2.0f, centre.y - 2.0f, 4.0f, 4.0f);
     }
 
-    void drawLabel(juce::Graphics& g, juce::Label& label) override
+    juce::Font getLabelFont(juce::Label& label) override
     {
-        g.fillAll(label.findColour(juce::Label::backgroundColourId));
-
-        if (!label.isBeingEdited())
-        {
-            auto alpha = label.isEnabled() ? 1.0f : 0.5f;
-            auto font = getLabelFont(label);
-
-            g.setColour(label.findColour(juce::Label::textColourId).withMultipliedAlpha(alpha));
-            g.setFont(orbitronBold().withHeight(font.getHeight()));
-
-            auto textArea = getLabelBorderSize(label).subtractedFrom(label.getLocalBounds());
-
-            g.drawFittedText(label.getText(), textArea, label.getJustificationType(),
-                           juce::jmax(1, (int)((float)textArea.getHeight() / font.getHeight())),
-                           label.getMinimumHorizontalScale());
-
-            g.setColour(label.findColour(juce::Label::outlineColourId).withMultipliedAlpha(alpha));
-        }
-        else if (label.isEnabled())
-        {
-            g.setColour(label.findColour(juce::Label::outlineColourId));
-        }
-
-        g.drawRect(label.getLocalBounds());
+        const auto font = label.getFont();
+        return juce::Font(orbitron(font.isBold() ? boldWeight : regularWeight).withHeight(font.getHeight()));
     }
 
-    juce::Font getLabelFont(juce::Label&) override
+    juce::Font getTextButtonFont(juce::TextButton&, int) override
     {
-        return juce::Font(orbitronBold().withHeight(14.0f));
-    }
-
-    void drawComboBox(juce::Graphics& g, int width, int height, bool,
-                     int, int, int, int, juce::ComboBox& box) override
-    {
-        auto cornerSize = 4.0f;
-        juce::Rectangle<int> boxBounds(0, 0, width, height);
-
-        // Background with gradient
-        juce::ColourGradient bgGradient(juce::Colour(DARK_BLUE_1), 0, 0,
-                                        juce::Colour(DARK_BLUE_2), 0, (float)height,
-                                        false);
-        g.setGradientFill(bgGradient);
-        g.fillRoundedRectangle(boxBounds.toFloat(), cornerSize);
-
-        // Border
-        g.setColour(juce::Colour(BORDER_BLUE));
-        g.drawRoundedRectangle(boxBounds.toFloat().reduced(0.5f, 0.5f), cornerSize, 1.0f);
-
-        // Arrow area
-        juce::Rectangle<int> arrowZone(width - 20, 0, 20, height);
-        juce::Path path;
-        path.startNewSubPath((float)arrowZone.getX() + 6.0f, (float)arrowZone.getCentreY() - 2.0f);
-        path.lineTo((float)arrowZone.getCentreX(), (float)arrowZone.getCentreY() + 3.0f);
-        path.lineTo((float)arrowZone.getRight() - 6.0f, (float)arrowZone.getCentreY() - 2.0f);
-
-        g.setColour(box.findColour(juce::ComboBox::arrowColourId).withAlpha(box.isEnabled() ? 0.9f : 0.2f));
-        g.strokePath(path, juce::PathStrokeType(2.0f));
+        return juce::Font(orbitronRegular().withHeight(12.0f));
     }
 
     void drawPopupMenuBackground(juce::Graphics& g, int width, int height) override
@@ -281,11 +260,6 @@ public:
                 g.drawText(shortcutKeyText, r, juce::Justification::centredRight, true);
             }
         }
-    }
-
-    juce::Font getComboBoxFont(juce::ComboBox&) override
-    {
-        return juce::Font(orbitronRegular().withHeight(14.0f));
     }
 
     juce::Font getPopupMenuFont() override

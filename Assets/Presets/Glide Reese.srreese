@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Glide Reese" category="Classic" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="output" value="0.75"/>
+    <PARAM id="detune" value="12"/>
+    <PARAM id="sub" value="0.4"/>
+    <PARAM id="cutoff" value="1800"/>
+    <PARAM id="resonance" value="0.7"/>
+    <PARAM id="drive" value="0.2"/>
+    <PARAM id="lfoRate" value="0.8"/>
+    <PARAM id="lfoDepth" value="0"/>
+    <PARAM id="lfoSync" value="0"/>
+    <PARAM id="filter24db" value="0"/>
+    <PARAM id="lfoSyncRate" value="6"/>
+    <PARAM id="glideTime" value="0.12"/>
+    <PARAM id="unisonVoices" value="2"/>
+    <PARAM id="oscAWave" value="1"/>
+    <PARAM id="oscBWave" value="1"/>
+    <PARAM id="attack" value="0.003"/>
+    <PARAM id="decay" value="0.1"/>
+    <PARAM id="sustain" value="0.9"/>
+    <PARAM id="release" value="0.2"/>
+  </Parameters>
+</PRESET>

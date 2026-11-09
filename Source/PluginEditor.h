@@ -1,12 +1,15 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "ui/About.h"
 #include "ui/CustomLookAndFeel.h"
 #include "ui/TriangleSelectorLookAndFeel.h"
+#include "ui/HeaderBar.h"
 #include "ui/LevelMeter.h"
+#include "ui/Manual.h"
+#include "ui/PromptOverlay.h"
 #include "ui/ADSRVisualizer.h"
 #include "ui/TransportDisplay.h"
-#include "PresetManager.h"
 
 //==============================================================================
 class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
@@ -15,7 +18,12 @@ class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
 public:
     static constexpr int width = 625;
     static constexpr int height = 300;
-    static constexpr int meterHz = 33;
+    static constexpr int transportHz = 33;
+
+    // As HEADER_TITLE and HEADER_LAYOUT in webui/src/ReeseEditor.tsx
+    inline static const HeaderBar::Title title { "SampleRealm: ", "REESE" };
+    static constexpr HeaderBar::Layout headerLayout { .height = 40, .edge = 0, .titleWidth = 340, .titleHeight = 35.112f,
+                                                      .gap = 8, .controlsHeight = 24, .meterWidth = LevelMeter::barWidth, .meterInset = 4 };
 
     explicit AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor&);
     ~AudioPluginAudioProcessorEditor() override;
@@ -66,14 +74,15 @@ private:
 
     CustomLookAndFeel customLookAndFeel;
     TriangleSelectorLookAndFeel triangleLookAndFeel;
-    PresetManager presetManager;
+    PromptOverlay prompt;
+    ManualOverlay manual;
+    LevelMeter outputMeter { processorRef.getOutputMeter() };
+    HeaderBar header { title, headerLayout, processorRef.getPresetManager(), prompt,
+                       [this] { manual.show(); }, About::text (processorRef), outputMeter };
+
     std::array<SliderWithAttachment, 16> controls;
     juce::Slider* activeSlider = nullptr;
     
-    juce::ComboBox presetComboBox;
-    juce::TextButton savePresetButton;
-    juce::TextButton deletePresetButton;
-    LevelMeter peakMeter;
     ADSRVisualizer adsrVisualizer;
     TransportDisplay transportDisplay;
     
@@ -82,17 +91,7 @@ private:
     
     juce::ToggleButton filter24dbButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> filter24dbAttachment;
-    
-    void updatePresetComboBox();
-    void savePresetClicked();
-    void deletePresetClicked();
-    
-    // Peak meter state
-    float currentPeakLevel { 0.0f };
-    bool clipIndicatorActive { false };
-    int clipIndicatorTimer { 0 };
-    static constexpr int CLIP_HOLD_TIME_MS = 500;
-    static constexpr int TIMER_INTERVAL_MS = 1000 / meterHz;
+
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AudioPluginAudioProcessorEditor)
 };

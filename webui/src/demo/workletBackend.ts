@@ -1,4 +1,6 @@
-import { paramLookup, type PluginBackend, type UiInfo } from '../backend.ts';
+import { listenerSet, paramLookup, type Level, type PluginBackend, type UiInfo } from '../backend.ts';
+import { localPresets, type PresetStorage } from './localPresets.ts';
+import { INIT_STATE, parseState, STORAGE_KEY, type PresetState } from './presetState.ts';
 
 // WASI imports are never called
 export const stubImports = () => {
@@ -24,27 +26,12 @@ export async function loadEngine(url: string): Promise<{ wasm: ArrayBuffer; info
   return { wasm, info: readUiInfo(engine) };
 }
 
-export const STORAGE_KEY = 'samplerealm-reese-presets';
-
 // The tempo the demo plays the host at
 export const DEMO_BPM = 174;
 
 const NOTE_ON = 0x90;
 const NOTE_OFF = 0x80;
 const VELOCITY = 100;
-
-export type PresetStorage = Pick<Storage, 'getItem' | 'setItem'>;
-
-type StoredPresets = Record<string, Record<string, number>>;
-
-// Storage can throw, e.g. in a private window
-const browserStorage = (): PresetStorage | undefined => {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
-};
 
 // The node's port, so tests can stand in for it
 export type EnginePort = Pick<MessagePort, 'postMessage'> & { onmessage: ((e: MessageEvent) => void) | null };
@@ -56,10 +43,9 @@ export type WorkletBackend = PluginBackend & {
   attach(port: EnginePort): void;
 };
 
-export function workletBackend(info: UiInfo, storage: PresetStorage | undefined = browserStorage()): WorkletBackend {
-  const entry = paramLookup(new Map(info.params.map((param, index) => [param.id, { param, index, value: param.defaultValue }])));
-  const listeners = new Map<string, Set<(value: number) => void>>();
-  const peakListeners = new Set<(peak: number) => void>();
+export function workletBackend(info: UiInfo, factoryPresets: string[] = [], storage?: PresetStorage): WorkletBackend {
+  const entry = paramLookup(new Map(info.params.map((param, index) => [param.id, { param, index, value: param.defaultValue, listeners: listenerSet<[number]>() }])));
+  const levelListeners = listenerSet<[Level]>();
   let port: EnginePort | null = null;
   // Sent once the worklet attaches
   let pending: unknown[] = [];
@@ -69,29 +55,23 @@ export function workletBackend(info: UiInfo, storage: PresetStorage | undefined 
     else pending.push(message);
   };
 
-  const setValue = (id: string, value: number) => {
+  const apply = (id: string, value: number) => {
     const found = entry(id);
     post({ type: 'param', index: found.index, value });
     found.value = value;
-    listeners.get(id)?.forEach((listener) => listener(value));
+    found.listeners.notify(value);
   };
 
-  const readPresets = (): StoredPresets => {
-    try {
-      return JSON.parse(storage?.getItem(STORAGE_KEY) ?? '{}') as StoredPresets;
-    } catch {
-      return {};
-    }
-  };
-
-  const writePresets = (presets: StoredPresets) => {
-    try {
-      storage?.setItem(STORAGE_KEY, JSON.stringify(presets));
-      return storage !== undefined;
-    } catch {
-      return false;
-    }
-  };
+  const presets = localPresets<PresetState>({
+    storageKey: STORAGE_KEY,
+    storage,
+    factory: factoryPresets,
+    parse: parseState,
+    init: INIT_STATE,
+    capture: () => ({ values: Object.fromEntries(info.params.map(({ id }) => [id, entry(id).value])) }),
+    // Ids this engine doesn't have are skipped, as the APVTS skips them
+    apply: ({ values }) => info.params.forEach(({ id, defaultValue }) => apply(id, values[id] ?? defaultValue)),
+  });
 
   const midi = (bytes: ArrayLike<number>) => {
     const [status = 0, data1 = 0, data2 = 0] = Array.from(bytes);
@@ -102,43 +82,21 @@ export function workletBackend(info: UiInfo, storage: PresetStorage | undefined 
 
   return {
     info,
+    running: 'Web demo',
+    presets,
     param: (id) => entry(id).param,
     getValue: (id) => entry(id).value,
-    setValue,
+    setValue: (id, value) => {
+      apply(id, value);
+      presets.markModified();
+    },
     beginGesture: () => {},
     endGesture: () => {},
-    subscribe: (id, listener) => {
-      const set = listeners.get(id) ?? new Set();
-      listeners.set(id, set.add(listener));
-      return () => set.delete(listener);
-    },
-    onPeak: (listener) => {
-      peakListeners.add(listener);
-      return () => peakListeners.delete(listener);
-    },
+    subscribe: (id, listener) => entry(id).listeners.add(listener),
+    onLevel: levelListeners.add,
     onBpm: (listener) => {
       listener(DEMO_BPM);
       return () => {};
-    },
-    presets: {
-      list: async () => Object.keys(readPresets()).sort((a, b) => a.localeCompare(b)),
-      // As PresetManager::loadPreset: parameters the preset lacks keep their values
-      load: async (name) => {
-        const stored = readPresets()[name];
-        if (!stored) return false;
-        info.params.forEach(({ id }) => id in stored && setValue(id, stored[id]!));
-        return true;
-      },
-      save: async (name) => {
-        if (!name) return false;
-        return writePresets({ ...readPresets(), [name]: Object.fromEntries(info.params.map(({ id }) => [id, entry(id).value])) });
-      },
-      remove: async (name) => {
-        const presets = readPresets();
-        if (!(name in presets)) return false;
-        delete presets[name];
-        return writePresets(presets);
-      },
     },
     noteOn: (note) => midi([NOTE_ON, note, VELOCITY]),
     noteOff: (note) => midi([NOTE_OFF, note, 0]),
@@ -146,7 +104,7 @@ export function workletBackend(info: UiInfo, storage: PresetStorage | undefined 
     attach: (enginePort) => {
       port = enginePort;
       port.onmessage = ({ data }) => {
-        if (data.type === 'peak') peakListeners.forEach((listener) => listener(data.peak));
+        if (data.type === 'level') levelListeners.notify({ peaks: data.peaks });
       };
       pending.forEach((message) => enginePort.postMessage(message));
       pending = [];

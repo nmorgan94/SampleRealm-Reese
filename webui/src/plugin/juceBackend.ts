@@ -1,20 +1,51 @@
 // The C++ side of these names is Source/webview/WebViewEditor.cpp
 import { getNativeFunction, getSliderState } from '@juce-framework/webview';
-import { paramLookup, type PluginBackend, type UiInfo } from '../backend.ts';
+import { listenerSet, paramLookup, type Level, type PluginBackend, type PresetBackend, type PresetEntry, type PresetStatus, type UiInfo } from '../backend.ts';
 import { toProportion } from '../params.ts';
 
-const call = async <T>(name: string, ...args: unknown[]) => (await getNativeFunction(name)(...args)) as T;
-
 // JUCE's type lists only its own initialisation data
-type InitialisationData = { uiInfo: string[] };
+type InitialisationData = { uiInfo: string[]; presetStatus: string[]; running: string[] };
 
 const listen = <T>(event: string, listener: (payload: T) => void) => {
   const handle = window.__JUCE__.backend.addEventListener(event, (payload) => listener(payload as T));
   return () => window.__JUCE__.backend.removeEventListener(handle);
 };
 
+function pluginPresets(initial: PresetStatus): PresetBackend {
+  let status = initial;
+  const listeners = listenerSet<[PresetStatus]>();
+
+  const update = (payload: unknown) => {
+    status = payload as PresetStatus;
+    listeners.notify(status);
+  };
+
+  const call = (name: string, ...args: unknown[]) => getNativeFunction(name)(...args);
+
+  // Asked again once listening, in case a change came first
+  listen('presetStatus', update);
+  call('presetStatus').then(update);
+  const error = async (result: Promise<unknown>) => ((await result) as string) || null;
+
+  return {
+    status: () => status,
+    onStatus: listeners.add,
+    list: async () => (await call('presetList')) as PresetEntry[],
+    current: async () => ((await call('presetCurrent')) as PresetEntry | null | undefined) ?? null,
+    load: async (preset) => void (await call('presetLoad', preset)),
+    loadInit: async () => void (await call('presetInit')),
+    loadNext: async () => void (await call('presetStep', 1)),
+    loadPrevious: async () => void (await call('presetStep', -1)),
+    exists: async (name) => (await call('presetExists', name)) as boolean,
+    save: (name, category) => error(call('presetSave', name, category)),
+    rename: (preset, newName) => error(call('presetRename', preset, newName)),
+    remove: (preset) => error(call('presetDelete', preset)),
+    showFolder: () => void call('presetShowFolder'),
+  };
+}
+
 export function juceBackend(): PluginBackend {
-  const { uiInfo } = window.__JUCE__.initialisationData as unknown as InitialisationData;
+  const { uiInfo, presetStatus, running } = window.__JUCE__.initialisationData as unknown as InitialisationData;
   const info = JSON.parse(uiInfo[0]) as UiInfo;
   const entry = paramLookup(new Map(info.params.map((param) => [param.id, { param, slider: getSliderState(param.id) }])));
 
@@ -23,6 +54,8 @@ export function juceBackend(): PluginBackend {
 
   return {
     info,
+    running: running[0],
+    presets: pluginPresets(JSON.parse(presetStatus[0]) as PresetStatus),
     param,
     getValue: (id) => slider(id).getScaledValue(),
     setValue: (id, value) => slider(id).setNormalisedValue(toProportion(param(id), value)),
@@ -33,13 +66,7 @@ export function juceBackend(): PluginBackend {
       const handle = state.valueChangedEvent.addListener(() => listener(state.getScaledValue()));
       return () => state.valueChangedEvent.removeListener(handle);
     },
-    onPeak: (listener) => listen('peak', listener),
-    onBpm: (listener) => listen('bpm', listener),
-    presets: {
-      list: () => call('presetList'),
-      load: (name) => call('presetLoad', name),
-      save: (name) => call('presetSave', name),
-      remove: (name) => call('presetDelete', name),
-    },
+    onLevel: (listener) => listen<Level>('level', listener),
+    onBpm: (listener) => listen<number>('bpm', listener),
   };
 }

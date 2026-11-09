@@ -3,12 +3,28 @@ import { memo, useEffect, useState } from 'react';
 import { AdsrView } from './AdsrView.tsx';
 import type { PluginBackend } from './backend.ts';
 import { Knob, SmallToggle } from './controls.tsx';
+import { EditorRootContext } from './editorRoot.ts';
 import { juceHeight } from './fonts.ts';
+import { HeaderBar, type HeaderLayout, type HeaderTitle } from './HeaderBar.tsx';
 import { useParam } from './hooks.ts';
 import { dragText, isWave } from './labels.ts';
-import { adsr, cell, EDITOR_HEIGHT, EDITOR_WIDTH, header, meter, panel, toggleOn, transport, version } from './layout.ts';
-import { LevelMeter } from './LevelMeter.tsx';
-import { PresetBar } from './PresetBar.tsx';
+import { adsr, cell, EDITOR_HEIGHT, EDITOR_WIDTH, header, HEADER_HEIGHT, panel, toggleOn, transport, version } from './layout.ts';
+import { BAR_WIDTH, LevelMeter } from './LevelMeter.tsx';
+import { useManual } from './ManualOverlay.tsx';
+import { usePrompt } from './PromptOverlay.tsx';
+
+// AudioPluginAudioProcessorEditor::title and headerLayout
+const HEADER_TITLE: HeaderTitle = { bold: 'SampleRealm: ', regular: 'REESE' };
+const HEADER_LAYOUT: HeaderLayout = {
+  height: HEADER_HEIGHT,
+  edge: 0,
+  titleWidth: 340,
+  titleHeight: 35.112,
+  gap: 8,
+  controlsHeight: 24,
+  meterWidth: BAR_WIDTH,
+  meterInset: 4,
+};
 
 // In the editor's ControlIndex order
 const CONTROLS: { id: string; label: string }[] = [
@@ -121,17 +137,18 @@ function Bpm({ backend }: { backend: PluginBackend }) {
 }
 
 export const ReeseEditor = memo(function ReeseEditor({ backend }: { backend: PluginBackend }) {
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const sync = useParam(backend, 'lfoSync').value >= 0.5;
+  const { prompt, overlay } = usePrompt();
+  const manual = useManual();
 
   return (
+    <EditorRootContext.Provider value={root}>
     <div
+      ref={setRoot}
       className="relative overflow-hidden bg-linear-to-b from-background-top to-background select-none"
       style={{ width: EDITOR_WIDTH, height: EDITOR_HEIGHT }}
     >
-      <div className="absolute flex items-center whitespace-pre" style={{ ...box(header), fontSize: 28 }}>
-        <span className="font-bold">SampleRealm: </span>
-        <span className="font-normal">REESE</span>
-      </div>
       <Panel />
       <div className="absolute" style={box(adsr)}>
         <AdsrView backend={backend} width={adsr.width} height={adsr.height} />
@@ -155,10 +172,20 @@ export const ReeseEditor = memo(function ReeseEditor({ backend }: { backend: Plu
         v{backend.info.version}
       </div>
 
-      <div className="absolute" style={box(meter)}>
-        <LevelMeter backend={backend} width={meter.width} height={meter.height} />
+      <div className="absolute" style={box(header)}>
+        <HeaderBar
+          title={HEADER_TITLE}
+          width={header.width}
+          layout={HEADER_LAYOUT}
+          backend={backend}
+          prompt={prompt}
+          showManual={manual.showManual}
+          meter={({ left, top, width, height }) => <LevelMeter backend={backend} x={left} y={top} width={width} height={height} channels={1} />}
+        />
       </div>
-      <PresetBar backend={backend} />
+      {overlay}
+      {manual.overlay}
     </div>
+    </EditorRootContext.Provider>
   );
 });

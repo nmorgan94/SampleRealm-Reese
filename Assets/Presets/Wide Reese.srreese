@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PRESET name="Wide Reese" category="Classic" author="SampleRealm" formatVersion="1">
+  <Parameters>
+    <PARAM id="output" value="0.85"/>
+    <PARAM id="detune" value="20"/>
+    <PARAM id="sub" value="0.3"/>
+    <PARAM id="cutoff" value="2400"/>
+    <PARAM id="resonance" value="0.5"/>
+    <PARAM id="drive" value="0.25"/>
+    <PARAM id="lfoRate" value="0.25"/>
+    <PARAM id="lfoDepth" value="0.3"/>
+    <PARAM id="lfoSync" value="0"/>
+    <PARAM id="filter24db" value="0"/>
+    <PARAM id="lfoSyncRate" value="6"/>
+    <PARAM id="glideTime" value="0"/>
+    <PARAM id="unisonVoices" value="5"/>
+    <PARAM id="oscAWave" value="1"/>
+    <PARAM id="oscBWave" value="1"/>
+    <PARAM id="attack" value="0.005"/>
+    <PARAM id="decay" value="0.12"/>
+    <PARAM id="sustain" value="0.9"/>
+    <PARAM id="release" value="0.25"/>
+  </Parameters>
+</PRESET>

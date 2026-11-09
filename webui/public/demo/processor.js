@@ -44,7 +44,7 @@ class EngineProcessor extends AudioWorkletProcessor {
     // The page's meter falls on its own, so silence needs no message
     if (++this.blocks % PEAK_EVERY_BLOCKS === 0) {
       const peak = this.engine.peak();
-      if (peak > 0) this.port.postMessage({ type: 'peak', peak });
+      if (peak > 0) this.port.postMessage({ type: 'level', peaks: [peak] });
     }
 
     return true;
