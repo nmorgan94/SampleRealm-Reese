@@ -56,7 +56,8 @@ public:
     double getCurrentBPM() const { return currentBPM.load(); }
 
 private:
-    juce::AudioProcessorValueTreeState apvts;
+    juce::AudioProcessorValueTreeState apvts { *this, nullptr, "Parameters",
+                                               Parameters::createLayout() };
     PresetManager presetManager { apvts, createPresetConfig() };
 
     ReeseSynth synth;
