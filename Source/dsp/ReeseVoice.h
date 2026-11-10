@@ -2,7 +2,7 @@
 
 #include <array>
 #include <juce_audio_basics/juce_audio_basics.h>
-#include "TptFilter.h"
+#include <juce_dsp/juce_dsp.h>
 
 //==============================================================================
 class ReeseVoice
@@ -44,7 +44,7 @@ private:
 
     juce::ADSR ampEnvelope;
     // Channel 1 is the second stage of the 24 dB slope
-    TptFilter filter;
+    juce::dsp::StateVariableTPTFilter<float> filter;
     double currentSampleRate { 44100.0 };
     float level { 0.0f };
     float targetFrequencyHz { 110.0f };

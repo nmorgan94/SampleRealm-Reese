@@ -13,10 +13,9 @@ const velocity = 100;
 
 const wasm = new WebAssembly.Module(readFileSync(localEnginePath()));
 
-function engine() {
+function instantiate() {
   const { exports } = new WebAssembly.Instance(wasm, stubImports());
   exports._initialize?.();
-  exports.prepare(sampleRate);
 
   const ids = readUiInfo(exports).params.map((p) => p.id);
   const set = (id, value) => {
@@ -24,21 +23,26 @@ function engine() {
     exports.setParam(ids.indexOf(id), value);
   };
 
-  const play = (seconds) => {
-    const out = [];
-    for (let n = 0; n < Math.round((seconds * sampleRate) / blockSize); n++) {
-      out.push(...new Float32Array(exports.memory.buffer, exports.render(blockSize), blockSize));
-    }
-    return out;
-  };
-
   return {
     ...exports,
     set,
-    play,
+    block: () => [...new Float32Array(exports.memory.buffer, exports.render(blockSize), blockSize)],
     noteOn: (note) => exports.midi(noteOn, note, velocity),
     noteOff: (note) => exports.midi(noteOff, note, 0),
   };
+}
+
+function engine(rate = sampleRate) {
+  const synth = instantiate();
+  synth.prepare(rate);
+
+  const play = (seconds) => {
+    const out = [];
+    for (let n = 0; n < Math.round((seconds * rate) / blockSize); n++) out.push(...synth.block());
+    return out;
+  };
+
+  return { ...synth, play };
 }
 
 // No detune, sub or drive: one clean waveform, without beating
@@ -74,6 +78,62 @@ const frequency = (samples) => {
 };
 
 const semitones = (ratio) => 12 * Math.log2(ratio);
+
+// Radix-2 FFT of a power-of-two length, as the level in each bin
+const spectrum = (samples) => {
+  const length = samples.length;
+  const re = Float64Array.from(samples);
+  const im = new Float64Array(length);
+
+  for (let i = 1, j = 0; i < length; i++) {
+    let bit = length >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) [re[i], re[j]] = [re[j], re[i]];
+  }
+
+  for (let size = 2; size <= length; size *= 2) {
+    for (let k = 0; k < size / 2; k++) {
+      const cos = Math.cos((2 * Math.PI * k) / size);
+      const sin = -Math.sin((2 * Math.PI * k) / size);
+      for (let a = k; a < length; a += size) {
+        const b = a + size / 2;
+        const r = re[b] * cos - im[b] * sin;
+        const i = re[b] * sin + im[b] * cos;
+        re[b] = re[a] - r;
+        im[b] = im[a] - i;
+        re[a] += r;
+        im[a] += i;
+      }
+    }
+  }
+
+  return re.map((r, i) => Math.hypot(r, im[i]));
+};
+
+// The loudest tone below the limit that is no harmonic of the note, in dB against its fundamental
+const loudestAlias = (samples, fundamental, limitHz) => {
+  const bin = sampleRate / samples.length;
+  const windowed = samples.map((s, i) => s * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / samples.length)));
+
+  // The fundamental sits between bins, so it is measured at its own frequency
+  let re = 0;
+  let im = 0;
+  windowed.forEach((s, i) => {
+    const angle = (2 * Math.PI * fundamental * i) / sampleRate;
+    re += s * Math.cos(angle);
+    im += s * Math.sin(angle);
+  });
+
+  const levels = spectrum(windowed);
+  let loudest = 0;
+  for (let i = Math.ceil(40 / bin); i * bin < limitHz; i++) {
+    const fromHarmonic = Math.abs(i * bin - fundamental * Math.round((i * bin) / fundamental));
+    // Clear of each harmonic's own spread in the window
+    if (fromHarmonic > 16 * bin) loudest = Math.max(loudest, levels[i]);
+  }
+  return 20 * Math.log10(loudest / Math.hypot(re, im));
+};
 
 // Cycles of the level's movement, from the RMS of 40 ms windows
 const modulationCycles = (samples) => {
@@ -218,6 +278,47 @@ test('bad input is ignored', () => {
 
 const hz = (note) => 440 * 2 ** ((note - 24 - 69) / 12);
 const near = (actual, note) => Math.abs(semitones(actual / hz(note))) < 0.05;
+
+test('the filter stays stable when the cutoff is above Nyquist', () => {
+  for (const slope of [0, 1]) {
+    const synth = engine(22050);
+    synth.set('cutoff', 18000);
+    synth.set('lfoDepth', 1);
+    synth.set('resonance', 1.2);
+    synth.set('filter24db', slope);
+
+    synth.noteOn(48);
+    const level = peak(synth.play(0.5));
+    assert.ok(level > 0.05 && level < 2, `peak ${level} with filter24db ${slope}`);
+  }
+});
+
+test('rendering before prepare matches a 44.1 kHz engine', () => {
+  const render = (synth) => {
+    synth.set('filter24db', 1);
+    synth.noteOn(48);
+    return synth.block();
+  };
+
+  assert.deepEqual(render(instantiate()), render(engine(44100)));
+});
+
+test('saw and square stay clean high up the keyboard', () => {
+  for (const [note, limitHz, ceiling] of [[96, 5000, -50], [127, 18000, -33]]) {
+    for (const wave of [0, 1]) {
+      const synth = plain();
+      synth.set('oscAWave', wave);
+      synth.set('oscBWave', wave);
+      synth.set('lfoDepth', 0);
+      synth.set('cutoff', 18000);
+
+      synth.noteOn(note);
+      synth.play(0.2);
+      const alias = loudestAlias(synth.play(1).slice(0, 2 ** 15), hz(note), limitHz);
+      assert.ok(alias < ceiling, `${alias.toFixed(1)} dB with wave ${wave} at note ${note}`);
+    }
+  }
+});
 
 test('a note played while another is held glides to it without restarting the envelope', () => {
   const synth = pureTone();

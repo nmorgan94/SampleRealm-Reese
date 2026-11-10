@@ -5,15 +5,36 @@ namespace
 {
 constexpr auto twoPi = juce::MathConstants<float>::twoPi;
 
-// Waveform generation functions
-float makeBipolarSaw (float phase)
+// Smooths a step up at phase 0
+float polyBlep (float t, float increment)
 {
-    return (2.0f * phase) - 1.0f;
+    if (t < increment)
+    {
+        t /= increment;
+        return t + t - t * t - 1.0f;
+    }
+
+    if (t > 1.0f - increment)
+    {
+        t = (t - 1.0f) / increment;
+        return t * t + t + t + 1.0f;
+    }
+
+    return 0.0f;
 }
 
-float makeBipolarSquare (float phase)
+// Waveform generation functions
+float makeBipolarSaw (float phase, float increment)
 {
-    return (phase < 0.5f) ? -1.0f : 1.0f;
+    return (2.0f * phase) - 1.0f - polyBlep (phase, increment);
+}
+
+float makeBipolarSquare (float phase, float increment)
+{
+    const auto firstHalf = phase < 0.5f;
+    const auto halfCycleLater = firstHalf ? phase + 0.5f : phase - 0.5f;
+
+    return (firstHalf ? -1.0f : 1.0f) - polyBlep (phase, increment) + polyBlep (halfCycleLater, increment);
 }
 
 float makeBipolarTriangle (float phase)
@@ -21,14 +42,14 @@ float makeBipolarTriangle (float phase)
     return (phase < 0.5f) ? (4.0f * phase - 1.0f) : (3.0f - 4.0f * phase);
 }
 
-float generateWaveform (float phase, int waveType)
+float generateWaveform (float phase, float increment, int waveType)
 {
     switch (waveType)
     {
-        case 0: return makeBipolarSquare (phase);
-        case 1: return makeBipolarSaw (phase);
+        case 0: return makeBipolarSquare (phase, increment);
+        case 1: return makeBipolarSaw (phase, increment);
         case 2: return makeBipolarTriangle (phase);
-        default: return makeBipolarSaw (phase);
+        default: return makeBipolarSaw (phase, increment);
     }
 }
 
@@ -42,6 +63,7 @@ float frequencyOf (int midiNoteNumber)
 //==============================================================================
 ReeseVoice::ReeseVoice()
 {
+    prepare (currentSampleRate);
     setPitchWheel (0x2000);
 }
 
@@ -80,7 +102,7 @@ void ReeseVoice::prepare (double sampleRate)
     currentSampleRate = sampleRate;
     ampEnvelope.setSampleRate (sampleRate);
 
-    filter.prepare (sampleRate);
+    filter.prepare ({ sampleRate, 1, 2 });
 }
 
 float ReeseVoice::getLFORate() const
@@ -144,14 +166,17 @@ float ReeseVoice::renderSample()
         const auto unisonFreqB = frequencyB * spread;
         
         // Update phases for this unison voice
-        unisonPhasesA[i] += unisonFreqA / sampleRateFloat;
-        unisonPhasesB[i] += unisonFreqB / sampleRateFloat;
+        const auto incrementA = unisonFreqA / sampleRateFloat;
+        const auto incrementB = unisonFreqB / sampleRateFloat;
+
+        unisonPhasesA[i] += incrementA;
+        unisonPhasesB[i] += incrementB;
         
         unisonPhasesA[i] -= std::floor (unisonPhasesA[i]);
         unisonPhasesB[i] -= std::floor (unisonPhasesB[i]);
         
-        const auto waveA = generateWaveform (unisonPhasesA[i], oscAWaveType);
-        const auto waveB = generateWaveform (unisonPhasesB[i], oscBWaveType);
+        const auto waveA = generateWaveform (unisonPhasesA[i], incrementA, oscAWaveType);
+        const auto waveB = generateWaveform (unisonPhasesB[i], incrementB, oscBWaveType);
         
         unisonSum += (waveA + waveB) * 0.5f;
     }
@@ -171,7 +196,8 @@ float ReeseVoice::renderSample()
     const auto driven = std::tanh (dry * (1.0f + params.drive * 6.0f));
     const auto envelope = ampEnvelope.getNextSample();
 
-    const auto modulatedCutoff = juce::jlimit (40.0f, 18000.0f,
+    const auto maxCutoff = juce::jmin (18000.0f, 0.49f * sampleRateFloat);
+    const auto modulatedCutoff = juce::jlimit (40.0f, maxCutoff,
                                                params.cutoff * (1.0f + (0.35f * lfo)));
     filter.setCutoffFrequency (modulatedCutoff);
     
