@@ -1,34 +1,14 @@
-// Mirrors Source/ui/CustomLookAndFeel.h, TriangleSelectorLookAndFeel.h and juce::Slider's rotary drag
-import {
-  useId,
-  useRef,
-  type CSSProperties,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent as ReactPointerEvent,
-} from 'react';
-import type { PluginBackend } from './backend.ts';
-import type { Rect } from './layout.ts';
-import { juceHeight } from './fonts.ts';
-import { useParam, type ParamState } from './hooks.ts';
-import { fromProportion, toProportion } from './params.ts';
+// Mirrors Source/ui/CustomLookAndFeel.h and TriangleSelectorLookAndFeel.h
+import { useId } from 'react';
+import { juceHeight } from '@samplerealm/modules/editor/fonts.ts';
+import { useParam } from '@samplerealm/modules/editor/hooks.ts';
+import { arcPath, ROTARY_END, ROTARY_START, type RotaryProps } from '@samplerealm/modules/editor/LabeledSlider.tsx';
+import type { EditorBackend } from './backend.ts';
 
-// JUCE's default rotary angles, clockwise from 12 o'clock
-const ROTARY_START = 1.2 * Math.PI;
-const ROTARY_SWEEP = 1.6 * Math.PI;
-
-export type { Rect };
+const ROTARY_SWEEP = ROTARY_END - ROTARY_START;
 
 const CYAN = 'var(--color-accent)';
 const MAGENTA = 'var(--color-magenta)';
-
-const pointAt = (cx: number, cy: number, radius: number, angle: number) =>
-  [cx + radius * Math.sin(angle), cy - radius * Math.cos(angle)] as const;
-
-const arcPath = (cx: number, cy: number, radius: number, from: number, to: number) => {
-  const [x1, y1] = pointAt(cx, cy, radius, from);
-  const [x2, y2] = pointAt(cx, cy, radius, to);
-  return `M ${x1} ${y1} A ${radius} ${radius} 0 ${to - from > Math.PI ? 1 : 0} 1 ${x2} ${y2}`;
-};
 
 const degrees = (radians: number) => (radians * 180) / Math.PI;
 
@@ -38,7 +18,8 @@ const knobGeometry = (width: number, height: number) => {
   return { cx: width / 2, cy: height / 2, radius };
 };
 
-function KnobGraphic({ width, height, proportion }: { width: number; height: number; proportion: number }) {
+// CustomLookAndFeel::drawRotarySlider
+export function KnobRotary({ width, height, proportion }: RotaryProps) {
   const id = useId();
   const { cx, cy, radius } = knobGeometry(width, height);
   const angle = ROTARY_START + proportion * ROTARY_SWEEP;
@@ -95,7 +76,8 @@ const symbolPaths = (cx: number, cy: number, radius: number) => {
   });
 };
 
-function TriangleGraphic({ width, height, value }: { width: number; height: number; value: number }) {
+// TriangleSelectorLookAndFeel::drawRotarySlider
+export function TriangleRotary({ width, height, value }: RotaryProps) {
   const { cx, cy, radius } = knobGeometry(width, height);
   const size = radius * 0.8;
 
@@ -112,72 +94,8 @@ function TriangleGraphic({ width, height, value }: { width: number; height: numb
   );
 }
 
-type DragStart = { x: number; y: number; proportion: number };
-
-interface KnobProps {
-  backend: PluginBackend;
-  state: ParamState;
-  width: number;
-  height: number;
-  // juce::Slider::setMouseDragSensitivity
-  pixelsForFullDrag: number;
-  look: 'rotary' | 'triangle';
-  onDragStart: () => void;
-  onDragEnd: () => void;
-}
-
-export function Knob({ backend, state, width, height, pixelsForFullDrag, look, onDragStart, onDragEnd }: KnobProps) {
-  const drag = useRef<DragStart | null>(null);
-  const { value, set, commit, param } = state;
-  const { id } = param;
-
-  const end = () => {
-    if (!drag.current) return;
-    drag.current = null;
-    backend.endGesture(id);
-    onDragEnd();
-  };
-
-  const follow = (e: ReactPointerEvent) => {
-    if (!drag.current) return;
-    const moved = e.clientX - drag.current.x + (drag.current.y - e.clientY);
-    const next = fromProportion(param, drag.current.proportion + moved / pixelsForFullDrag);
-    if (next !== value) set(next);
-  };
-
-  return (
-    <div
-      className="cursor-pointer touch-none"
-      role="slider"
-      aria-label={param.name}
-      aria-valuemin={param.min}
-      aria-valuemax={param.max}
-      aria-valuenow={value}
-      style={{ width, height }}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        e.currentTarget.setPointerCapture(e.pointerId);
-        drag.current = { x: e.clientX, y: e.clientY, proportion: toProportion(param, value) };
-        backend.beginGesture(id);
-        onDragStart();
-      }}
-      onPointerMove={follow}
-      onPointerUp={end}
-      onPointerCancel={end}
-      // SliderAttachment returns a double-click to the default
-      onDoubleClick={() => commit(param.defaultValue)}
-    >
-      {look === 'triangle' ? (
-        <TriangleGraphic width={width} height={height} value={value} />
-      ) : (
-        <KnobGraphic width={width} height={height} proportion={toProportion(param, value)} />
-      )}
-    </div>
-  );
-}
-
 // CustomLookAndFeel::drawToggleButton, for an Off / On parameter
-export function SmallToggle({ backend, id, text }: { backend: PluginBackend; id: string; text: (on: boolean) => string }) {
+export function SmallToggle({ backend, id, text }: { backend: EditorBackend; id: string; text: (on: boolean) => string }) {
   const { value, commit, param } = useParam(backend, id);
   const on = value >= 0.5;
 
@@ -194,26 +112,6 @@ export function SmallToggle({ backend, id, text }: { backend: PluginBackend; id:
       onDoubleClick={(e) => e.stopPropagation()}
     >
       {text(on)}
-    </button>
-  );
-}
-
-interface TextButtonProps {
-  text: string;
-  style: CSSProperties;
-  onClick(e: ReactMouseEvent<HTMLButtonElement>): void;
-}
-
-// LookAndFeel_V4::drawButtonBackground lightens by 5% on hover and 20% while down
-export function TextButton({ text, style, onClick }: TextButtonProps) {
-  return (
-    <button
-      type="button"
-      className="absolute cursor-pointer overflow-hidden rounded-md border border-line bg-widget px-1 text-ellipsis whitespace-nowrap text-accent hover:bg-[color-mix(in_srgb,var(--color-widget),white_5%)] active:bg-[color-mix(in_srgb,var(--color-widget),white_20%)]"
-      style={{ fontSize: juceHeight(12), ...style }}
-      onClick={onClick}
-    >
-      {text}
     </button>
   );
 }

@@ -1,14 +1,13 @@
 #pragma once
 
-#include <juce_gui_basics/juce_gui_basics.h>
+#include <editor/editor.h>
 #include "BinaryData.h"
-#include "HeaderBar.h"
-#include "LevelMeter.h"
-#include "ModalOverlay.h"
 
-class CustomLookAndFeel : public juce::LookAndFeel_V4
+class CustomLookAndFeel : public juce::LookAndFeel_V4,
+                          public EditorFonts
 {
 public:
+    static constexpr juce::uint32 BACKGROUND_TOP = 0xff0a0e1a;
     static constexpr juce::uint32 CYAN = 0xff00d9ff;
     static constexpr juce::uint32 MAGENTA = 0xffff006e;
     static constexpr juce::uint32 LIGHT_BLUE = 0xffa0b0ff;
@@ -158,6 +157,12 @@ public:
     juce::Font getTextButtonFont(juce::TextButton&, int) override
     {
         return juce::Font(orbitronRegular().withHeight(12.0f));
+    }
+
+    // The header's title, the manual and the prompt's text field
+    juce::Font getEditorFont(float height, bool bold) override
+    {
+        return juce::Font(orbitron(bold ? boldWeight : regularWeight).withHeight(height));
     }
 
     void drawPopupMenuBackground(juce::Graphics& g, int width, int height) override

@@ -1,17 +1,18 @@
 // Mirrors AudioPluginAudioProcessorEditor::paint() and resized()
 import { memo, useEffect, useState } from 'react';
+import { EditorRootContext } from '@samplerealm/modules/editor/editorRoot.ts';
+import { HeaderBar, type HeaderLayout, type HeaderTitle } from '@samplerealm/modules/editor/HeaderBar.tsx';
+import { useParam } from '@samplerealm/modules/editor/hooks.ts';
+import { LabeledSlider } from '@samplerealm/modules/editor/LabeledSlider.tsx';
+import { BAR_WIDTH, LevelMeter } from '@samplerealm/modules/editor/LevelMeter.tsx';
+import { useManual } from '@samplerealm/modules/editor/ManualOverlay.tsx';
+import { usePrompt } from '@samplerealm/modules/editor/PromptOverlay.tsx';
+import manualText from '../../Assets/Manual.md?raw';
 import { AdsrView } from './AdsrView.tsx';
-import type { PluginBackend } from './backend.ts';
-import { Knob, SmallToggle } from './controls.tsx';
-import { EditorRootContext } from './editorRoot.ts';
-import { juceHeight } from './fonts.ts';
-import { HeaderBar, type HeaderLayout, type HeaderTitle } from './HeaderBar.tsx';
-import { useParam } from './hooks.ts';
+import type { ReeseBackend } from './backend.ts';
+import { KnobRotary, SmallToggle, TriangleRotary } from './controls.tsx';
 import { dragText, isWave } from './labels.ts';
-import { adsr, cell, EDITOR_HEIGHT, EDITOR_WIDTH, header, HEADER_HEIGHT, panel, toggleOn, transport, version } from './layout.ts';
-import { BAR_WIDTH, LevelMeter } from './LevelMeter.tsx';
-import { useManual } from './ManualOverlay.tsx';
-import { usePrompt } from './PromptOverlay.tsx';
+import { adsr, cell, EDITOR_HEIGHT, EDITOR_WIDTH, header, HEADER_HEIGHT, knobArea, panel, toggleOn, transport, version } from './layout.ts';
 
 // AudioPluginAudioProcessorEditor::title and headerLayout
 const HEADER_TITLE: HeaderTitle = { bold: 'SampleRealm: ', regular: 'REESE' };
@@ -52,34 +53,31 @@ const LFO_RATE = indexOf('lfoRate');
 const LFO_DEPTH = indexOf('lfoDepth');
 const ATTACK = indexOf('attack');
 
+// The web's names were 12 before, so RESONANCE fits its column on one line
+const NAME_HEIGHT = 12;
+
 const box = ({ x, y, width, height }: { x: number; y: number; width: number; height: number }) => ({ left: x, top: y, width, height });
 
-function LabeledKnob({ backend, index, id, label }: { backend: PluginBackend; index: number; id: string; label: string }) {
-  const [dragging, setDragging] = useState(false);
-  const state = useParam(backend, id);
-  const { slider, label: labelBox } = cell(index);
+function Knob({ backend, index, id, label }: { backend: ReeseBackend; index: number; id: string; label: string }) {
+  const area = cell(index);
+  const wave = isWave(id);
 
   return (
-    <>
-      <div
-        className="absolute flex items-center justify-center font-bold whitespace-nowrap"
-        style={{ ...box(labelBox), fontSize: juceHeight(12) }}
-      >
-        {dragging ? dragText(state.param, state.value) : label}
-      </div>
-      <div className="absolute" style={box(slider)}>
-        <Knob
-          backend={backend}
-          state={state}
-          width={slider.width}
-          height={slider.height}
-          look={isWave(id) ? 'triangle' : 'rotary'}
-          pixelsForFullDrag={isWave(id) ? 75 : 150}
-          onDragStart={() => setDragging(true)}
-          onDragEnd={() => setDragging(false)}
-        />
-      </div>
-    </>
+    <div className="absolute" style={box(area)}>
+      <LabeledSlider
+        backend={backend}
+        id={id}
+        label={label}
+        width={area.width}
+        height={area.height}
+        namePlacement="above"
+        nameHeight={NAME_HEIGHT}
+        labelClassName="whitespace-nowrap"
+        pixelsForFullDrag={wave ? 75 : 150}
+        rotary={wave ? TriangleRotary : KnobRotary}
+        valueText={dragText}
+      />
+    </div>
   );
 }
 
@@ -88,8 +86,8 @@ function Panel() {
   const right = x + width;
   const bottom = y + height;
   const dividerY = y + height / 2;
-  const depth = cell(LFO_DEPTH).slider;
-  const between = (depth.x + depth.width + cell(ATTACK).slider.x) / 2;
+  const depth = knobArea(LFO_DEPTH);
+  const between = (depth.x + depth.width + knobArea(ATTACK).x) / 2;
   const inset = 8;
   const corners = [
     `M ${x + inset} ${y + inset + 15} V ${y + inset} H ${x + inset + 15}`,
@@ -125,7 +123,7 @@ function Panel() {
   );
 }
 
-function Bpm({ backend }: { backend: PluginBackend }) {
+function Bpm({ backend }: { backend: ReeseBackend }) {
   const [bpm, setBpm] = useState(0);
   useEffect(() => backend.onBpm(setBpm), [backend]);
 
@@ -136,11 +134,11 @@ function Bpm({ backend }: { backend: PluginBackend }) {
   );
 }
 
-export const ReeseEditor = memo(function ReeseEditor({ backend }: { backend: PluginBackend }) {
+export const ReeseEditor = memo(function ReeseEditor({ backend }: { backend: ReeseBackend }) {
   const [root, setRoot] = useState<HTMLDivElement | null>(null);
   const sync = useParam(backend, 'lfoSync').value >= 0.5;
   const { prompt, overlay } = usePrompt();
-  const manual = useManual();
+  const manual = useManual(manualText);
 
   return (
     <EditorRootContext.Provider value={root}>
@@ -157,7 +155,7 @@ export const ReeseEditor = memo(function ReeseEditor({ backend }: { backend: Plu
       {CONTROLS.map(({ id, label }, index) => {
         const synced = sync && index === LFO_RATE;
         const knobId = synced ? 'lfoSyncRate' : id;
-        return <LabeledKnob key={knobId} backend={backend} index={index} id={knobId} label={synced ? 'LFO SYNC' : label} />;
+        return <Knob key={knobId} backend={backend} index={index} id={knobId} label={synced ? 'LFO SYNC' : label} />;
       })}
 
       <div className="absolute" style={box(toggleOn(LFO_RATE))}>

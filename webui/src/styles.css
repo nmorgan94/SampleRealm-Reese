@@ -10,9 +10,16 @@
   --color-fg: #a0b0ff;
   --color-fg-dim: #6878a8;
 
-  /* For the shared header, menu, overlays and meter, as the native colour IDs in CustomLookAndFeel */
+  /* For the shared header, menu, overlays, meter and demo frame, as the native colour IDs in CustomLookAndFeel */
   --color-widget: var(--color-panel);
   --color-line: var(--color-panel-border);
+  --color-thumb: var(--color-accent);
+  --color-clip: var(--color-magenta);
+  --color-button-text: var(--color-accent);
+  --color-menu: var(--color-panel);
+  --color-menu-header: var(--color-accent);
+  --color-menu-highlight: color-mix(in oklab, var(--color-accent) 20%, transparent);
+  --color-menu-highlight-text: var(--color-accent);
   --color-header: transparent;
   --color-title: var(--color-fg);
   --color-overlay-dim: color-mix(in oklab, var(--color-panel-dark) 75%, transparent);
@@ -24,9 +31,6 @@
   --color-input-highlight: color-mix(in oklab, var(--color-accent) 40%, transparent);
   --color-scrollbar: var(--color-accent);
   --color-meter-background: var(--color-panel-dark);
-  --color-meter-outline: var(--color-panel-border);
-  --color-meter-bar: var(--color-accent);
-  --color-meter-clip: var(--color-magenta);
 
   --font-display: Orbitron, var(--font-sans);
   --text-2xs: 10px;

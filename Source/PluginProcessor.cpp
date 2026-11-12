@@ -4,7 +4,7 @@
 #include <BinaryData.h>
 
 #if PLUGIN_WEBVIEW_EDITOR
- #include "webview/WebViewEditor.h"
+ #include <webview_editor/webview_editor.h>
 #endif
 
 AudioPluginAudioProcessor::AudioPluginAudioProcessor()
@@ -166,7 +166,15 @@ bool AudioPluginAudioProcessor::hasEditor() const
 juce::AudioProcessorEditor* AudioPluginAudioProcessor::createEditor()
 {
    #if PLUGIN_WEBVIEW_EDITOR
-    return new WebViewEditor (*this);
+    return new WebViewEditor (*this, { .specs = ParameterSpecs::all,
+                                       .parameters = apvts,
+                                       .presets = &presetManager,
+                                       .meter = &outputMeter,
+                                       .width = AudioPluginAudioProcessorEditor::width,
+                                       .height = AudioPluginAudioProcessorEditor::height,
+                                       .background = juce::Colour (CustomLookAndFeel::BACKGROUND_TOP),
+                                       // The tempo the LFO syncs to, for the page's display
+                                       .onTick = [this] (const WebViewEditor::EmitEvent& emit) { emit ("bpm", getCurrentBPM()); } });
    #else
     return new AudioPluginAudioProcessorEditor (*this);
    #endif

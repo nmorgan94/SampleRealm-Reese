@@ -1,38 +1,10 @@
 #pragma once
 
-#include <algorithm>
-#include <array>
-#include <span>
+#include <samplerealm/ParameterSpec.h>
 
 //==============================================================================
 namespace ParameterSpecs
 {
-    enum class Kind { real, integer, choice };
-
-    struct Spec
-    {
-        const char* id;
-        const char* name;
-        Kind kind;
-        float min, max, defaultValue;
-        float step = 0.0f;
-        float skew = 1.0f;
-        const char* unit = "";
-        std::span<const char* const> choices = {};
-    };
-
-    constexpr Spec integer (const char* id, const char* name, int min, int max, int defaultValue, const char* unit = "")
-    {
-        return { id, name, Kind::integer, static_cast<float> (min), static_cast<float> (max),
-                 static_cast<float> (defaultValue), 1.0f, 1.0f, unit };
-    }
-
-    constexpr Spec choice (const char* id, const char* name, std::span<const char* const> choices, int defaultValue)
-    {
-        return { id, name, Kind::choice, 0.0f, static_cast<float> (choices.size() - 1),
-                 static_cast<float> (defaultValue), 1.0f, 1.0f, "", choices };
-    }
-
     inline constexpr const char* offOn[] { "Off", "On" };
 
     inline constexpr const char* syncRates[] {
@@ -42,6 +14,8 @@ namespace ParameterSpecs
         "1/2", "1/2T", "1/2D",
         "1 Bar", "2 Bars", "4 Bars"
     };
+
+    inline constexpr const char* waves[] { "Square", "Saw", "Tri" };
 
     inline constexpr Spec output       { "output",    "Output",    Kind::real, 0.0f,  1.0f,     0.75f,   0.01f };
     inline constexpr Spec detune       { "detune",    "Detune",    Kind::real, 0.0f,  40.0f,    12.0f,   0.01f };
@@ -56,8 +30,8 @@ namespace ParameterSpecs
     inline constexpr Spec lfoSyncRate  = choice ("lfoSyncRate", "LFO Sync Rate", syncRates, 6);
     inline constexpr Spec glideTime    { "glideTime", "Glide Time", Kind::real, 0.0f, 2.0f, 0.0f, 0.001f, 0.5f };
     inline constexpr Spec unisonVoices = integer ("unisonVoices", "Unison Voices", 1, 8, 1);
-    inline constexpr Spec oscAWave     = integer ("oscAWave", "Osc A Wave", 0, 2, 1);
-    inline constexpr Spec oscBWave     = integer ("oscBWave", "Osc B Wave", 0, 2, 1);
+    inline constexpr Spec oscAWave     = choice ("oscAWave", "Osc A Wave", waves, 1);
+    inline constexpr Spec oscBWave     = choice ("oscBWave", "Osc B Wave", waves, 1);
     inline constexpr Spec attack       { "attack",  "Attack",  Kind::real, 0.001f, 0.1f, 0.01f, 0.001f, 0.5f };
     inline constexpr Spec decay        { "decay",   "Decay",   Kind::real, 0.01f,  1.0f, 0.08f, 0.001f, 0.4f };
     inline constexpr Spec sustain      { "sustain", "Sustain", Kind::real, 0.0f,   1.0f, 0.85f, 0.01f };
@@ -70,13 +44,5 @@ namespace ParameterSpecs
         &attack, &decay, &sustain, &release
     };
 
-    static_assert (std::ranges::all_of (all, [] (const Spec* spec)
-    {
-        if (spec->kind == Kind::real)
-            return true;
-
-        return spec->step == 1.0f
-            && (spec->kind == Kind::integer
-                || (spec->min == 0.0f && static_cast<size_t> (spec->max) == spec->choices.size() - 1));
-    }), "Integer and choice specs need step 1, and a choice spec's range is 0 to its last choice");
+    static_assert (areValid (all));
 }

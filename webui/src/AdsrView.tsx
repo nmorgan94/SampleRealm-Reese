@@ -1,13 +1,13 @@
 // Mirrors Source/ui/ADSRVisualizer.h
 import { useId } from 'react';
-import type { PluginBackend } from './backend.ts';
-import { useParam } from './hooks.ts';
+import { useParam } from '@samplerealm/modules/editor/hooks.ts';
+import type { EditorBackend } from './backend.ts';
 
 // The display's fixed sustain, in seconds
 const SUSTAIN_TIME = 0.3;
 const INSET = 10;
 
-export function AdsrView({ backend, width, height }: { backend: PluginBackend; width: number; height: number }) {
+export function AdsrView({ backend, width, height }: { backend: EditorBackend; width: number; height: number }) {
   const id = useId();
   const attack = useParam(backend, 'attack').value;
   const decay = useParam(backend, 'decay').value;

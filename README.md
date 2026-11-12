@@ -73,7 +73,7 @@ Every command is the same on macOS and Windows, except the rows marked **macOS**
 Tests in `Tests/` use [Catch2](https://github.com/catchorg/Catch2) to drive the processor directly:
 the parameter snapshot hosts and saved sessions rely on, bus layouts, state save/restore, and finite
 output across block sizes and parameter settings. Run them with the `unit` or `test` workflow.
-How notes play is tested on the wasm engine, in `wasm/engine.test.mjs`.
+How notes play is tested on the wasm engine, in `webui/test/synth.test.ts`.
 
 ## Web Demo and WebView Editor
 
@@ -94,7 +94,6 @@ editor in `webui/`. Needs Emscripten (`brew install emscripten`) and Node 24+.
 - The demo plays from the computer keyboard (A to '), the on-screen keys or a MIDI keyboard,
   at 174 BPM. Its presets stay in the browser.
 - The `webview` build installs over the native one; run the `release` workflow to switch back.
-- Delete `wasm/patches/juce-wasm.patch` once JUCE fixes its wasm support.
 
 ## Validating the Plugin
 

@@ -4,52 +4,47 @@
 AudioPluginAudioProcessorEditor::AudioPluginAudioProcessorEditor (AudioPluginAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p), adsrVisualizer(p.getAPVTS())
 {
+    using namespace ParameterSpecs;
+
     setLookAndFeel(&customLookAndFeel);
 
     addAndMakeVisible(header);
     addAndMakeVisible(adsrVisualizer);
 
-    configureSlider (controls[OSC_A_WAVE], "oscAWave", "OSC A");
-    controls[OSC_A_WAVE].slider.setLookAndFeel(&triangleLookAndFeel);
-    controls[OSC_A_WAVE].slider.setMouseDragSensitivity(75);
-    
-    configureSlider (controls[OSC_B_WAVE], "oscBWave", "OSC B");
-    controls[OSC_B_WAVE].slider.setLookAndFeel(&triangleLookAndFeel);
-    controls[OSC_B_WAVE].slider.setMouseDragSensitivity(75);
-    configureSlider (controls[UNISON_VOICES], "unisonVoices", "UNISON");
-    configureSlider (controls[DRIVE], "drive", "DRIVE");
-    configureSlider (controls[DETUNE], "detune", "DETUNE");
-    configureSlider (controls[SUB], "sub", "SUB");
-    configureSlider (controls[CUTOFF], "cutoff", "CUTOFF");
-    configureSlider (controls[RESONANCE], "resonance", "RESONANCE");
-    configureSlider (controls[LFO_RATE], "lfoRate", "LFO RATE");
+    configureKnob (knobs[OSC_A_WAVE], oscAWave, "OSC A");
+    configureKnob (knobs[OSC_B_WAVE], oscBWave, "OSC B");
+    configureKnob (knobs[SUB], sub, "SUB");
+    configureKnob (knobs[DETUNE], detune, "DETUNE");
+    configureKnob (knobs[GLIDE_TIME], glideTime, "GLIDE");
+    configureKnob (knobs[UNISON_VOICES], unisonVoices, "UNISON");
+    configureKnob (knobs[DRIVE], drive, "DRIVE");
+    configureKnob (knobs[OUTPUT], output, "OUTPUT");
+    configureKnob (knobs[CUTOFF], cutoff, "CUTOFF");
+    configureKnob (knobs[RESONANCE], resonance, "RESONANCE");
+    configureKnob (knobs[LFO_RATE], lfoRate, "LFO RATE");
+    configureKnob (lfoSyncRateKnob, lfoSyncRate, "LFO SYNC");
+    configureKnob (knobs[LFO_DEPTH], lfoDepth, "LFO DEPTH");
+    configureKnob (knobs[ATTACK], attack, "ATTACK");
+    configureKnob (knobs[DECAY], decay, "DECAY");
+    configureKnob (knobs[SUSTAIN], sustain, "SUSTAIN");
+    configureKnob (knobs[RELEASE], release, "RELEASE");
 
     lfoSyncButton.setButtonText("SYNC");
-    lfoSyncButton.onClick = [this]() { updateLFORateControl(); };
     lfoSyncAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processorRef.getAPVTS(), "lfoSync", lfoSyncButton);
+        processorRef.getAPVTS(), lfoSync.id, lfoSyncButton);
     addAndMakeVisible(lfoSyncButton);
-    
-    filter24dbButton.setButtonText("12dB");
-    filter24dbButton.onClick = [this]()
-    {
-        filter24dbButton.setButtonText(filter24dbButton.getToggleState() ? "24dB" : "12dB");
-    };
+
     filter24dbAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
-        processorRef.getAPVTS(), "filter24db", filter24dbButton);
+        processorRef.getAPVTS(), filter24db.id, filter24dbButton);
     addAndMakeVisible(filter24dbButton);
-    
-    configureSlider (controls[LFO_DEPTH], "lfoDepth", "LFO DEPTH");
-    configureSlider (controls[GLIDE_TIME], "glideTime", "GLIDE");
-    configureSlider (controls[OUTPUT], "output", "OUTPUT");
-    configureSlider (controls[ATTACK], "attack", "ATTACK");
-    configureSlider (controls[DECAY], "decay", "DECAY");
-    configureSlider (controls[SUSTAIN], "sustain", "SUSTAIN");
-    configureSlider (controls[RELEASE], "release", "RELEASE");
+
+    // Clicked by the attachment too, when the host or a preset sets the parameter
+    lfoSyncButton.onClick = [this] { updateFromSwitches(); };
+    filter24dbButton.onClick = [this] { updateFromSwitches(); };
+    updateFromSwitches();
 
     addAndMakeVisible(transportDisplay);
 
-    prompt.setFont (CustomLookAndFeel::orbitronRegular().withHeight (14.0f));
     addChildComponent (prompt);
     addChildComponent (manual);
 
@@ -62,9 +57,9 @@ AudioPluginAudioProcessorEditor::~AudioPluginAudioProcessorEditor()
 {
     stopTimer();
 
-    controls[OSC_A_WAVE].slider.setLookAndFeel(nullptr);
-    controls[OSC_B_WAVE].slider.setLookAndFeel(nullptr);
-    
+    knobs[OSC_A_WAVE].getSlider().setLookAndFeel(nullptr);
+    knobs[OSC_B_WAVE].getSlider().setLookAndFeel(nullptr);
+
     setLookAndFeel(nullptr);
 }
 
@@ -73,92 +68,53 @@ void AudioPluginAudioProcessorEditor::timerCallback()
     transportDisplay.setBPM(processorRef.getCurrentBPM());
 }
 
-void AudioPluginAudioProcessorEditor::updateSliderLabel (SliderWithAttachment& sliderControl, const juce::String& paramID)
+void AudioPluginAudioProcessorEditor::updateFromSwitches()
 {
-    // Show waveform names for oscillator wave parameters
-    if (paramID == "oscAWave" || paramID == "oscBWave")
+    const auto synced = lfoSyncButton.getToggleState();
+    knobs[LFO_RATE].setVisible (! synced);
+    lfoSyncRateKnob.setVisible (synced);
+
+    filter24dbButton.setButtonText (filter24dbButton.getToggleState() ? "24dB" : "12dB");
+}
+
+void AudioPluginAudioProcessorEditor::configureKnob (LabeledSlider& knob, const ParameterSpecs::Spec& spec, const juce::String& labelText)
+{
+    const auto isWave = &spec == &ParameterSpecs::oscAWave || &spec == &ParameterSpecs::oscBWave;
+
+    // The id lets tests find the knob
+    knob.setComponentID (spec.id);
+    knob.setLabelText (labelText);
+    knob.setNamePlacement (LabeledSlider::NamePlacement::above);
+    knob.setNameHeight (14.0f);
+    addAndMakeVisible (knob);
+
+    auto& slider = knob.getSlider();
+    slider.setMouseDragSensitivity (isWave ? 75 : 150);
+
+    if (isWave)
+        slider.setLookAndFeel (&triangleLookAndFeel);
+
+    attachments.push_back (std::make_unique<SliderAttachment> (processorRef.getAPVTS(), spec.id, slider));
+
+    // After the attachment, which sets the parameter's own text. As dragText in webui/src/labels.ts
+    if (spec.kind == ParameterSpecs::Kind::choice)
     {
-        const int waveValue = (int)sliderControl.slider.getValue();
-        const char* waveNames[] = { "SQUARE", "SAW", "TRI" };
-        sliderControl.label.setText(waveNames[waveValue], juce::dontSendNotification);
-    }
-    else if (paramID == "lfoSyncRate")
-    {
-        const int syncRateValue = (int)sliderControl.slider.getValue();
-        const char* syncRateNames[] = {
-            "1/16", "1/16T", "1/16D",
-            "1/8", "1/8T", "1/8D",
-            "1/4", "1/4T", "1/4D",
-            "1/2", "1/2T", "1/2D",
-            "1 BAR", "2 BARS", "4 BARS"
+        slider.textFromValueFunction = [parameterText = slider.textFromValueFunction] (double value)
+        {
+            return parameterText (value).toUpperCase();
         };
-        sliderControl.label.setText(syncRateNames[syncRateValue], juce::dontSendNotification);
-    }
-    else
-    {
-        int decimals = sliderControl.slider.getNumDecimalPlacesToDisplay();
-        sliderControl.label.setText(juce::String(sliderControl.slider.getValue(), decimals), juce::dontSendNotification);
     }
 }
 
-void AudioPluginAudioProcessorEditor::updateLFORateControl()
+juce::Rectangle<int> AudioPluginAudioProcessorEditor::knobArea (ControlIndex index) const
 {
-    const bool syncEnabled = lfoSyncButton.getToggleState();
-    
-    if (syncEnabled)
-    {
-        configureSlider(controls[LFO_RATE], "lfoSyncRate", "LFO SYNC");
-    }
-    else
-    {
-        configureSlider(controls[LFO_RATE], "lfoRate", "LFO RATE");
-    }
-}
-
-void AudioPluginAudioProcessorEditor::configureSlider (SliderWithAttachment& sliderControl,
-                                                       const juce::String& paramID,
-                                                       const juce::String& labelText)
-{
-    sliderControl.originalLabelText = labelText;
-    
-    sliderControl.slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
-    sliderControl.slider.setTextBoxStyle (juce::Slider::NoTextBox, false, 0, 0);
-    sliderControl.slider.setMouseDragSensitivity(150);
-    
-    // Set up callbacks to track active slider
-    sliderControl.slider.onDragStart = [this, &sliderControl, paramID]()
-    {
-        activeSlider = &sliderControl.slider;
-        updateSliderLabel(sliderControl, paramID);
-    };
-    
-    sliderControl.slider.onDragEnd = [this, &sliderControl]()
-    {
-        activeSlider = nullptr;
-        sliderControl.label.setText(sliderControl.originalLabelText, juce::dontSendNotification);
-    };
-    
-    sliderControl.slider.onValueChange = [this, &sliderControl, paramID]()
-    {
-        if (activeSlider == &sliderControl.slider)
-            updateSliderLabel(sliderControl, paramID);
-    };
-    
-    addAndMakeVisible (sliderControl.slider);
-
-    sliderControl.label.setText (labelText, juce::dontSendNotification);
-    sliderControl.label.setJustificationType (juce::Justification::centred);
-    sliderControl.label.setFont(juce::FontOptions(14.0f, juce::Font::bold));
-    sliderControl.label.attachToComponent (&sliderControl.slider, false);
-    addAndMakeVisible (sliderControl.label);
-
-    sliderControl.attachment = std::make_unique<SliderAttachment> (processorRef.getAPVTS(), paramID, sliderControl.slider);
+    return knobs[index].getBounds().withTrimmedTop (LabeledSlider::labelHeight);
 }
 
 //==============================================================================
 void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    juce::ColourGradient bgGradient(juce::Colour(0xff0a0e1a), 0, 0,
+    juce::ColourGradient bgGradient(juce::Colour(CustomLookAndFeel::BACKGROUND_TOP), 0, 0,
                                     juce::Colour(0xff151925), 0, (float)getHeight(),
                                     false);
     g.setGradientFill(bgGradient);
@@ -210,8 +166,8 @@ void AudioPluginAudioProcessorEditor::paint (juce::Graphics& g)
     g.drawLine(dividerArea.getX(), dividerY, dividerArea.getRight(), dividerY, 1.0f);
     
     // Vertical divider between LFO DEPTH and ATTACK sliders
-    auto lfoDepthBounds = controls[LFO_DEPTH].slider.getBounds().toFloat();
-    auto attackBounds = controls[ATTACK].slider.getBounds().toFloat();
+    auto lfoDepthBounds = knobArea (LFO_DEPTH).toFloat();
+    auto attackBounds = knobArea (ATTACK).toFloat();
     auto verticalDividerX = (lfoDepthBounds.getRight() + attackBounds.getX()) / 2.0f;
 
     g.setColour(juce::Colour(0xff00d9ff).withAlpha(0.1f));
@@ -272,21 +228,23 @@ void AudioPluginAudioProcessorEditor::resized()
                                                rowHeight - 15);
     adsrVisualizer.setBounds(adsrRowBounds);
 
-    for (int i = 0; i < (int) controls.size(); ++i)
+    int cell = 0;
+
+    for (auto& knob : knobs)
     {
-        const auto row = i / columns;
-        const auto column = i % columns;
+        const auto row = cell / columns;
+        const auto column = cell % columns;
 
-        auto cell = juce::Rectangle<int> (area.getX() + (column * columnWidth),
-                                          area.getY() + (row * rowHeight),
-                                          columnWidth,
-                                          rowHeight);
-
-        controls[(size_t) i].label.setBounds (cell.removeFromTop (24));
-        controls[(size_t) i].slider.setBounds (cell);
+        knob.setBounds (area.getX() + (column * columnWidth),
+                        area.getY() + (row * rowHeight),
+                        columnWidth,
+                        rowHeight);
+        ++cell;
     }
-    
-    auto lfoRateSliderBounds = controls[LFO_RATE].slider.getBounds();
+
+    lfoSyncRateKnob.setBounds (knobs[LFO_RATE].getBounds());
+
+    auto lfoRateSliderBounds = knobArea (LFO_RATE);
     auto syncButtonBounds = juce::Rectangle<int>(
         lfoRateSliderBounds.getX() + 40,
         lfoRateSliderBounds.getY() + 5,
@@ -295,7 +253,7 @@ void AudioPluginAudioProcessorEditor::resized()
     );
     lfoSyncButton.setBounds(syncButtonBounds);
     
-    auto cutoffSliderBounds = controls[CUTOFF].slider.getBounds();
+    auto cutoffSliderBounds = knobArea (CUTOFF);
     auto filter24dbButtonBounds = juce::Rectangle<int>(
         cutoffSliderBounds.getX() + 40,
         cutoffSliderBounds.getY() + 5,

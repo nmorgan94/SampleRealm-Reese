@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatValue, fromProportion, parseValue, toProportion } from '../src/params.ts';
+import { formatValue, fromProportion } from '@samplerealm/modules/editor/params.ts';
 import { info, param } from './engine.ts';
 
 // From the Catch2 snapshot in Tests/ReeseTests.cpp
@@ -44,12 +44,12 @@ const pluginText: [id: string, proportion: number, text: string][] = [
   ['unisonVoices', 0, '1'],
   ['unisonVoices', 0.5, '4'],
   ['unisonVoices', 1, '8'],
-  ['oscAWave', 0, '0'],
-  ['oscAWave', 0.5, '1'],
-  ['oscAWave', 1, '2'],
-  ['oscBWave', 0, '0'],
-  ['oscBWave', 0.5, '1'],
-  ['oscBWave', 1, '2'],
+  ['oscAWave', 0, 'Square'],
+  ['oscAWave', 0.5, 'Saw'],
+  ['oscAWave', 1, 'Tri'],
+  ['oscBWave', 0, 'Square'],
+  ['oscBWave', 0.5, 'Saw'],
+  ['oscBWave', 1, 'Tri'],
   ['attack', 0, '0.001'],
   ['attack', 0.5, '0.026'],
   ['attack', 1, '0.100'],
@@ -72,31 +72,4 @@ test('every value reads as the plugin shows it, at the same knob position', () =
   for (const [id, proportion, text] of pluginText) {
     assert.equal(formatValue(param(id), fromProportion(param(id), proportion)), text, `${id} at ${proportion}`);
   }
-});
-
-test('skewed knob positions map to values and back', () => {
-  const cutoff = param('cutoff');
-
-  assert.ok(Math.abs(toProportion(cutoff, fromProportion(cutoff, 0.25)) - 0.25) < 0.001);
-});
-
-test('positions past either end clamp to the range', () => {
-  const cutoff = param('cutoff');
-
-  assert.equal(fromProportion(cutoff, 1.5), 18000);
-  assert.equal(fromProportion(cutoff, -0.5), 40);
-});
-
-test('integer and choice values round halves to even, as the plugin parameters do', () => {
-  assert.equal(fromProportion(param('unisonVoices'), 0.5), 4);
-  assert.equal(fromProportion(param('unisonVoices'), 9.5 / 14), 6);
-  assert.equal(fromProportion(param('lfoSyncRate'), 6.5 / 14), 6);
-});
-
-test('typed text parses, and text without a number is ignored', () => {
-  const cutoff = param('cutoff');
-
-  assert.equal(parseValue(cutoff, '440 Hz'), 440);
-  assert.equal(parseValue(cutoff, '99999'), 18000);
-  assert.equal(parseValue(cutoff, 'bright'), null);
 });

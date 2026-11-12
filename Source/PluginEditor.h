@@ -1,15 +1,11 @@
 #pragma once
 
 #include "PluginProcessor.h"
-#include "ui/About.h"
 #include "ui/CustomLookAndFeel.h"
 #include "ui/TriangleSelectorLookAndFeel.h"
-#include "ui/HeaderBar.h"
-#include "ui/LevelMeter.h"
-#include "ui/Manual.h"
-#include "ui/PromptOverlay.h"
 #include "ui/ADSRVisualizer.h"
 #include "ui/TransportDisplay.h"
+#include <BinaryData.h>
 
 //==============================================================================
 class AudioPluginAudioProcessorEditor final : public juce::AudioProcessorEditor,
@@ -56,17 +52,13 @@ private:
         RELEASE
     };
 
-    struct SliderWithAttachment
-    {
-        juce::Slider slider;
-        juce::Label label;
-        std::unique_ptr<SliderAttachment> attachment;
-        juce::String originalLabelText;
-    };
+    void configureKnob (LabeledSlider& knob, const ParameterSpecs::Spec& spec, const juce::String& labelText);
 
-    void configureSlider (SliderWithAttachment& sliderControl, const juce::String& paramID, const juce::String& labelText);
-    void updateSliderLabel (SliderWithAttachment& sliderControl, const juce::String& paramID);
-    void updateLFORateControl();
+    // The LFO knob and the filter button follow their switches, however they were set
+    void updateFromSwitches();
+
+    // A knob's own area, under its name
+    juce::Rectangle<int> knobArea (ControlIndex index) const;
 
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
@@ -75,14 +67,16 @@ private:
     CustomLookAndFeel customLookAndFeel;
     TriangleSelectorLookAndFeel triangleLookAndFeel;
     PromptOverlay prompt;
-    ManualOverlay manual;
+    ManualOverlay manual { juce::String::createStringFromData (BinaryData::Manual_md, BinaryData::Manual_mdSize) };
     LevelMeter outputMeter { processorRef.getOutputMeter() };
     HeaderBar header { title, headerLayout, processorRef.getPresetManager(), prompt,
                        [this] { manual.show(); }, About::text (processorRef), outputMeter };
 
-    std::array<SliderWithAttachment, 16> controls;
-    juce::Slider* activeSlider = nullptr;
-    
+    std::array<LabeledSlider, 16> knobs;
+    // In LFO RATE's place while the LFO is synced
+    LabeledSlider lfoSyncRateKnob;
+    std::vector<std::unique_ptr<SliderAttachment>> attachments;
+
     ADSRVisualizer adsrVisualizer;
     TransportDisplay transportDisplay;
     

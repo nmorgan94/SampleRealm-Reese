@@ -3,7 +3,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <vector>
 #include "ReeseVoice.h"
-#include "../shared/Transport.h"
+#include <samplerealm/Transport.h>
 
 //==============================================================================
 /** Mono, last-note priority: a note played while another is held glides to it. */

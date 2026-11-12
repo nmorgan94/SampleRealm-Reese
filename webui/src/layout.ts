@@ -1,13 +1,5 @@
 // AudioPluginAudioProcessorEditor::resized(), worked through
-export interface Rect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-// juce::Rectangle::withSizeKeepingCentre
-export const centred = (outer: number, inner: number) => Math.trunc((outer - inner) / 2);
+import { LABEL_HEIGHT } from '@samplerealm/modules/editor/layout.ts';
 
 export const EDITOR_WIDTH = 625;
 export const EDITOR_HEIGHT = 300;
@@ -23,19 +15,25 @@ const COLUMNS = 8;
 const columnWidth = Math.floor(area.width / COLUMNS);
 const rowHeight = Math.floor(area.height / 2);
 
-const LABEL_SPACE = 24;
-// Orbitron 12 plus the label's border, placed above the slider by attachToComponent
-const LABEL_HEIGHT = 14;
+// A knob with its name above
+export const cell = (index: number) => ({
+  x: area.x + (index % COLUMNS) * columnWidth,
+  y: area.y + Math.floor(index / COLUMNS) * rowHeight,
+  width: columnWidth,
+  height: rowHeight,
+});
 
-export const cell = (index: number) => {
-  const x = area.x + (index % COLUMNS) * columnWidth;
-  const y = area.y + Math.floor(index / COLUMNS) * rowHeight;
-  const slider = { x, y: y + LABEL_SPACE, width: columnWidth, height: rowHeight - LABEL_SPACE };
-  return { slider, label: { x, y: slider.y - LABEL_HEIGHT, width: columnWidth, height: LABEL_HEIGHT } };
+// AudioPluginAudioProcessorEditor::knobArea: the knob under its name
+export const knobArea = (index: number) => {
+  const { x, y, width, height } = cell(index);
+  return { x, y: y + LABEL_HEIGHT, width, height: height - LABEL_HEIGHT };
 };
 
-// On a slider's top edge, 40 in
-export const toggleOn = (index: number) => ({ x: cell(index).slider.x + 40, y: cell(index).slider.y + 5, width: 30, height: 10 });
+// On a knob's top edge, 40 in
+export const toggleOn = (index: number) => {
+  const { x, y } = knobArea(index);
+  return { x: x + 40, y: y + 5, width: 30, height: 10 };
+};
 
 export const adsr = { x: area.x + 4 * columnWidth, y: area.y + rowHeight + 10, width: 4 * columnWidth, height: rowHeight - 15 };
 

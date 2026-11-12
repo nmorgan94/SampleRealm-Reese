@@ -28,7 +28,4 @@ namespace Parameters
     inline const juce::ParameterID decayId        { ParameterSpecs::decay.id, versionHint };
     inline const juce::ParameterID sustainId      { ParameterSpecs::sustain.id, versionHint };
     inline const juce::ParameterID releaseId      { ParameterSpecs::release.id, versionHint };
-
-    // Built from ParameterSpecs::all, in its order
-    juce::AudioProcessorValueTreeState::ParameterLayout createLayout();
 }

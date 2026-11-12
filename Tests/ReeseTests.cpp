@@ -7,17 +7,6 @@
 using namespace TestHelpers;
 using Catch::Matchers::WithinAbs;
 
-namespace
-{
-    // Sends a note on or off at the start of a block, the way a host would
-    void processWithMidi (AudioPluginAudioProcessor& processor, juce::AudioBuffer<float>& buffer,
-                          const juce::MidiMessage& message)
-    {
-        juce::MidiBuffer midi { message };
-        processor.processBlock (buffer, midi);
-    }
-}
-
 //==============================================================================
 // What hosts and saved sessions see. Change it only on purpose
 TEST_CASE_METHOD (ProcessorFixture, "Parameters match the snapshot hosts rely on", "[parameters]")
@@ -46,8 +35,8 @@ TEST_CASE_METHOD (ProcessorFixture, "Parameters match the snapshot hosts rely on
         { "lfoSyncRate",  1, "LFO Sync Rate", "", 0.0f,   14.0f,    1.0f,   1.0f,  6.0f,    { "1/16", "1/4T", "4 Bars" } },
         { "glideTime",    1, "Glide Time",    "", 0.0f,   2.0f,     0.001f, 0.5f,  0.0f,    { "0.000", "0.500", "2.000" } },
         { "unisonVoices", 1, "Unison Voices", "", 1.0f,   8.0f,     1.0f,   1.0f,  1.0f,    { "1", "4", "8" } },
-        { "oscAWave",     1, "Osc A Wave",    "", 0.0f,   2.0f,     1.0f,   1.0f,  1.0f,    { "0", "1", "2" } },
-        { "oscBWave",     1, "Osc B Wave",    "", 0.0f,   2.0f,     1.0f,   1.0f,  1.0f,    { "0", "1", "2" } },
+        { "oscAWave",     1, "Osc A Wave",    "", 0.0f,   2.0f,     1.0f,   1.0f,  1.0f,    { "Square", "Saw", "Tri" } },
+        { "oscBWave",     1, "Osc B Wave",    "", 0.0f,   2.0f,     1.0f,   1.0f,  1.0f,    { "Square", "Saw", "Tri" } },
         { "attack",       1, "Attack",        "", 0.001f, 0.1f,     0.001f, 0.5f,  0.01f,   { "0.001", "0.026", "0.100" } },
         { "decay",        1, "Decay",         "", 0.01f,  1.0f,     0.001f, 0.4f,  0.08f,   { "0.010", "0.185", "1.000" } },
         { "sustain",      1, "Sustain",       "", 0.0f,   1.0f,     0.01f,  1.0f,  0.85f,   { "0.00", "0.50", "1.00" } },
@@ -124,7 +113,7 @@ TEST_CASE_METHOD (ProcessorFixture, "Output stays finite across block sizes with
 
     for (const auto& message : messages)
     {
-        processWithMidi (processor, buffer, message);
+        process (processor, buffer, message);
         CHECK (allSamplesFinite (buffer));
     }
 

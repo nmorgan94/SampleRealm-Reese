@@ -1,10 +1,10 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <samplerealm/PeakMeter.h>
 #include "Parameters.h"
-#include "dsp/PeakMeter.h"
 #include "dsp/ReeseSynth.h"
-#include "presets/PresetManager.h"
+#include <editor/editor.h>
 
 //==============================================================================
 class AudioPluginAudioProcessor final : public juce::AudioProcessor
@@ -57,7 +57,7 @@ public:
 
 private:
     juce::AudioProcessorValueTreeState apvts { *this, nullptr, "Parameters",
-                                               Parameters::createLayout() };
+                                               createParameterLayout (ParameterSpecs::all, Parameters::versionHint) };
     PresetManager presetManager { apvts, createPresetConfig() };
 
     ReeseSynth synth;
